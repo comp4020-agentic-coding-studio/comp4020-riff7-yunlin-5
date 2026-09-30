@@ -90,7 +90,9 @@ function enhance(form: HTMLFormElement) {
   };
   const parsed = JSON.parse(form.dataset.booking ?? "null") as BookingData | null;
   if (!parsed || parsed.rooms.length === 0) return;
-  const data: BookingData = parsed;
+  // `let`, not `const`: the live board (src/scripts/board-live.ts) can hand
+  // the form fresh bookings without a reload; see "fresh data" below.
+  let data: BookingData = parsed;
   const select = part<HTMLSelectElement>("#roomId");
   const nameInput = part<HTMLInputElement>("#bookedBy");
   const startInput = part<HTMLInputElement>("#startTime");
@@ -446,6 +448,55 @@ function enhance(form: HTMLFormElement) {
   // Tell the 3D model about a room restored from a draft.
   if (restored) select.dispatchEvent(new Event("change", { bubbles: true }));
   requestAnimationFrame(() => form.classList.add("is-ready"));
+
+  // --- fresh data, without a reload ---------------------------------------
+  // The live board (src/scripts/board-live.ts) re-fetches this page when a
+  // booking is made or cancelled anywhere, writes the fresh render's
+  // `data-booking` onto this form and dispatches `booking:refresh` on it. It
+  // never touches the form's DOM, so the chosen room, name and times stay
+  // exactly as the student left them; this re-reads only the data and redraws
+  // what's derived from it: the room cards' status lines, the timeline and its
+  // free chips, and the clash warning (a slot that was free may not be now).
+  const syncCardStatuses = () => {
+    for (const radio of radios) {
+      const status = radio.closest("label")?.querySelector(".room-choice__status");
+      const card = data.rooms.find((r) => String(r.id) === radio.value);
+      if (!status || !card) continue;
+      // The same wording the server renders (roomChoices in index.astro).
+      const inUseNow = card.bookings.some((b) => b.active);
+      const text =
+        data.isToday && inUseNow
+          ? "In use now"
+          : card.bookings.length === 0
+            ? "No bookings"
+            : `${card.bookings.length} booked`;
+      if (status.textContent?.trim() === text && Boolean(status.querySelector(".now-dot")) === inUseNow) continue;
+      const dot = el("span", "now-dot");
+      dot.setAttribute("aria-hidden", "true");
+      status.replaceChildren(...(inUseNow ? [dot] : []), text);
+    }
+  };
+  form.addEventListener("booking:refresh", () => {
+    let next: BookingData | null = null;
+    try {
+      next = JSON.parse(form.dataset.booking ?? "null") as BookingData | null;
+    } catch {
+      return;
+    }
+    // A different date is a different page; board-live.ts reloads for that.
+    if (!next || next.date !== data.date || next.rooms.length === 0) return;
+    data = next;
+    // The free chips are rebuilt below; if one had focus, put it back on the
+    // chip with the same label (or the first chip) rather than dropping it.
+    const focusedChip = chips.contains(document.activeElement) ? (document.activeElement?.textContent ?? "") : null;
+    syncCardStatuses();
+    drawnRoom = "";
+    render();
+    if (focusedChip !== null) {
+      const buttons = [...chips.querySelectorAll<HTMLButtonElement>("button")];
+      (buttons.find((b) => b.textContent === focusedChip) ?? buttons[0] ?? startInput).focus({ preventScroll: true });
+    }
+  });
 
   // Keep "now" honest on a tab left open between the page's own reloads.
   if (data.isToday) {
