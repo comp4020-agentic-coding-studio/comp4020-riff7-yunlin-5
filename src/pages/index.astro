@@ -2,10 +2,12 @@
 import { canberraParts, canberraWallTimeToEpochMs, nextReloadTargetEpochMs, shiftDate } from "../lib/clock";
 import { listBookingsForDate, listRooms } from "../lib/db";
 import { roomForName } from "../lib/floorplan";
-import { DURATIONS, lengthLabel } from "../lib/timeslots";
+import { DURATIONS, lengthLabel, toMinutes, toTime } from "../lib/timeslots";
+import { QUICK_LENGTH, QUICK_OPTIONS, quickStart } from "../lib/quickwhen";
 import MyWeek from "../components/MyWeek.astro";
 import "../styles.css";
 import "../styles/booking-form.css";
+import "../styles/quick-when.css";
 
 // All times on this board are Canberra wall-clock text (see src/lib/schema.ts)
 // — "now" has to be read the same way, regardless of what timezone the
@@ -115,6 +117,20 @@ const nextBoundaryTarget = isToday
   : date === shiftDate(today, 1)
     ? canberraWallTimeToEpochMs(date, "00:00")
     : null;
+
+// The "When do you need a room?" shortcuts. src/scripts/quick-when.ts keeps
+// these current and, for the date on screen, fills the form in place.
+const quickOptions = QUICK_OPTIONS.map(({ when, label }) => {
+  const start = quickStart(when, toMinutes(nowTime) ?? 0);
+  const target = when === "tomorrow" ? shiftDate(today, 1) : today;
+  return {
+    when,
+    label,
+    start,
+    href: `/?date=${target}&when=${when}#book`,
+    time: start === null ? "" : `${toTime(start)} – ${toTime(start + QUICK_LENGTH)}`,
+  };
+});
 ---
 
 <!doctype html>
@@ -144,6 +160,20 @@ const nextBoundaryTarget = isToday
         A shared, live view of a handful of ANU Library group study rooms: who's booked what, and what's free — see
         the <a href="/readme/">About page</a> for what this prototype is standing in for.
       </p>
+
+      <section class="quick" aria-labelledby="quick-heading">
+        <h2 id="quick-heading">When do you need a room?</h2>
+        <p class="quick__lede">Pick one and we'll find a free room for an hour — you just add your name.</p>
+        <div class="quick__opts">
+          {quickOptions.map((option) => (
+            <a class="quick__opt" href={option.href} data-when={option.when} hidden={option.start === null}>
+              <span class="quick__label">{option.label}</span>
+              <span class="quick__time">{option.time}</span>
+              <span class="quick__free"></span>
+            </a>
+          ))}
+        </div>
+      </section>
 
       <nav aria-label="date" class="datenav">
         <a href={`/?date=${shiftDate(date, -1)}`}>&larr; {shiftDate(date, -1)}</a>
@@ -367,6 +397,9 @@ const nextBoundaryTarget = isToday
     </script>
     <script>
       import "../scripts/booking-form";
+    </script>
+    <script>
+      import "../scripts/quick-when";
     </script>
     <script>
       import "../scripts/board-live";
