@@ -1,0 +1,310 @@
+---
+import { canberraParts, nextReloadTargetEpochMs, shiftDate } from "../lib/clock";
+import { type NamedBooking, getBooking, listBookingsByName, listRooms } from "../lib/db";
+import { roomForName } from "../lib/floorplan";
+import { myName } from "../lib/me";
+import "../styles.css";
+import "../styles/my-week.css";
+
+// My week: every booking made under your name this week, laid out as a
+// calendar, plus what's already booked for next week. Each booking opens a
+// card (a native popover, so it works with no script) to book the same slot
+// again next week or, if it hasn't started, to cancel it.
+const name = myName(Astro.cookies);
+const { date: today, time: nowTime } = canberraParts(new Date());
+const now = `${today} ${nowTime}`;
+
+// Weeks run Monday to Sunday, in Canberra's calendar.
+const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+const weekStart = shiftDate(today, -((weekday + 6) % 7));
+const weekEnd = shiftDate(weekStart, 6);
+const nextWeekEnd = shiftDate(weekStart, 13);
+const days = Array.from({ length: 7 }, (_, i) => shiftDate(weekStart, i));
+
+const dayFmt = new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+const longFmt = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+const partFmt = (date: string, part: "weekday" | "day") =>
+  new Intl.DateTimeFormat("en-AU", { [part]: part === "weekday" ? "short" : "numeric", timeZone: "UTC" }).format(
+    new Date(`${date}T00:00:00Z`),
+  );
+const dayLabel = (date: string) => dayFmt.format(new Date(`${date}T00:00:00Z`));
+const longLabel = (date: string) => longFmt.format(new Date(`${date}T00:00:00Z`));
+
+const minutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+};
+const length = (b: NamedBooking) => {
+  const total = minutes(b.endTime) - minutes(b.startTime);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return [h ? `${h} h` : "", m ? `${m} min` : ""].filter(Boolean).join(" ");
+};
+const code = (roomName: string) => roomForName(roomName)?.code ?? roomName;
+
+type State = "past" | "now" | "upcoming";
+const stateOf = (b: NamedBooking): State =>
+  `${b.date} ${b.endTime}` <= now ? "past" : `${b.date} ${b.startTime}` <= now ? "now" : "upcoming";
+const stateLabel: Record<State, string> = { past: "Finished", now: "Happening now", upcoming: "Upcoming" };
+
+const all = name ? listBookingsByName(name, weekStart, nextWeekEnd) : [];
+const thisWeek = all.filter((b) => b.date <= weekEnd).map((b) => ({ ...b, state: stateOf(b), code: code(b.roomName) }));
+const nextWeek = all.filter((b) => b.date > weekEnd).map((b) => ({ ...b, code: code(b.roomName) }));
+const rebookedAs = (b: NamedBooking) =>
+  nextWeek.find(
+    (n) =>
+      n.roomId === b.roomId &&
+      n.date === shiftDate(b.date, 7) &&
+      n.startTime === b.startTime &&
+      n.endTime === b.endTime,
+  );
+
+// The calendar's hours: 08:00 to 22:00, stretched if a booking falls outside.
+const firstHour = Math.min(8, ...thisWeek.map((b) => Math.floor(minutes(b.startTime) / 60)));
+const lastHour = Math.max(22, ...thisWeek.map((b) => Math.ceil(minutes(b.endTime) / 60)));
+const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
+const offset = (hhmm: string) => minutes(hhmm) - firstHour * 60;
+const nowOffset = offset(nowTime);
+const nowInRange = nowOffset >= 0 && nowOffset <= (lastHour - firstHour) * 60;
+
+const upcomingCount = thisWeek.filter((b) => b.state !== "past").length;
+const pastCount = thisWeek.length - upcomingCount;
+
+// What just happened, from the redirect that brought the browser here.
+const params = Astro.url.searchParams;
+let notice: string | null = null;
+const rebookedId = Number(params.get("rebooked"));
+if (rebookedId) {
+  const made = getBooking(rebookedId);
+  const room = made && listRooms().find((r) => r.id === made.roomId);
+  if (made && room)
+    notice = `Rebooked ${code(room.name)} for ${longLabel(made.date)}, ${made.startTime}–${made.endTime}.`;
+} else if (params.get("cancelled")) {
+  notice = "Booking cancelled. The room is free again for anyone who needs it.";
+} else if (params.get("error") === "conflict") {
+  const from = getBooking(Number(params.get("from")));
+  const room = from && listRooms().find((r) => r.id === from.roomId);
+  notice =
+    from && room
+      ? `Couldn't rebook: ${code(room.name)} is already taken on ${longLabel(shiftDate(from.date, 7))} for part of ${from.startTime}–${from.endTime}. Nothing was booked.`
+      : "Couldn't rebook: that slot is already taken next week. Nothing was booked.";
+} else if (params.get("error") === "gone") {
+  notice = "That booking doesn't exist any more.";
+}
+
+// Like the board, this page goes stale as bookings start and finish, and
+// when anyone books or cancels in these two weeks: reload at the next
+// boundary today, and on any booking event for a date on show.
+const nextBoundaryTarget = nextReloadTargetEpochMs(
+  today,
+  nowTime,
+  thisWeek.filter((b) => b.date === today).flatMap((b) => [b.startTime, b.endTime]),
+);
+---
+
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Your Chifley Level 3 group study room bookings this week — rebook one for next week or cancel one you don't need." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>My week · Room board</title>
+  </head>
+  <body class="my-week">
+    <nav aria-label="site">
+      <a href="/">Room board</a>
+      <a href="/my/" aria-current="page">My week</a>
+      <a href="/readme/">About</a>
+    </nav>
+    <main>
+      <header class="mw-head">
+        <h1>My week</h1>
+        <p class="mw-range">{dayLabel(weekStart)} – {dayLabel(weekEnd)}</p>
+      </header>
+
+      {notice && (
+        <p class="mw-notice" role="status">
+          {notice}
+        </p>
+      )}
+
+      {name ? (
+        <>
+          <div class="mw-who">
+            <p>
+              Bookings under <strong>{name}</strong>
+              {thisWeek.length > 0 && (
+                <span class="mw-counts">
+                  {" "}
+                  · {upcomingCount} still to come · {pastCount} done
+                </span>
+              )}
+            </p>
+            <details class="mw-change">
+              <summary>Not you?</summary>
+              <form method="post" action="/api/me">
+                <label for="me-name">Show bookings under</label>
+                <input id="me-name" name="name" value={name} maxlength="80" autocomplete="name" />
+                <button>Show</button>
+              </form>
+            </details>
+          </div>
+
+          <ul class="mw-legend" aria-label="Key">
+            <li><span class="mw-swatch mw-swatch--upcoming" aria-hidden="true"></span> Upcoming</li>
+            <li><span class="mw-swatch mw-swatch--now" aria-hidden="true"></span> Happening now</li>
+            <li><span class="mw-swatch mw-swatch--past" aria-hidden="true"></span> Finished</li>
+          </ul>
+
+          <section class="mw-cal" aria-labelledby="this-week">
+            <h2 id="this-week" class="mw-visually-hidden">This week</h2>
+            <div class="mw-grid" style={`--hours: ${hours.length}`}>
+              <div class="mw-gutter" aria-hidden="true">
+                {hours.map((h) => (
+                  <span style={`--at: ${(h - firstHour) * 60}`}>{String(h).padStart(2, "0")}:00</span>
+                ))}
+              </div>
+              {days.map((day) => {
+                const mine = thisWeek.filter((b) => b.date === day);
+                return (
+                  <div class:list={["mw-day", { "mw-day--today": day === today, "mw-day--past": day < today }]}>
+                    <h3 class="mw-dayhead">
+                      <span class="mw-dayhead__name">{partFmt(day, "weekday")}</span>
+                      <span class="mw-dayhead__num">{partFmt(day, "day")}</span>
+                      {day === today && <span class="mw-visually-hidden"> (today)</span>}
+                    </h3>
+                    <div class="mw-lane">
+                      {day === today && nowInRange && (
+                        <div class="mw-nowline" style={`--at: ${nowOffset}`} aria-hidden="true" />
+                      )}
+                      {mine.length === 0 && <p class="mw-none">No bookings</p>}
+                      {mine.map((b) => (
+                        <button
+                          type="button"
+                          class={`mw-slot mw-slot--${b.state}`}
+                          style={`--from: ${offset(b.startTime)}; --to: ${offset(b.endTime)}`}
+                          popovertarget={`booking-${b.id}`}
+                          aria-label={`${b.code}, ${b.startTime} to ${b.endTime}, ${stateLabel[b.state].toLowerCase()}. Open to rebook or cancel.`}
+                        >
+                          <span class="mw-slot__room">{b.code}</span>
+                          <span class="mw-slot__time">
+                            {b.startTime}–{b.endTime}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {thisWeek.length === 0 && (
+              <p class="mw-empty">
+                Nothing booked under {name} this week. <a href="/#book">Book a room</a> and it'll show up here.
+              </p>
+            )}
+          </section>
+
+          {thisWeek.map((b) => {
+            const again = rebookedAs(b);
+            return (
+              <div popover id={`booking-${b.id}`} class={`mw-card mw-card--${b.state}`} role="dialog" aria-labelledby={`booking-${b.id}-title`}>
+                <p class="mw-card__state">{stateLabel[b.state]}</p>
+                <h3 id={`booking-${b.id}-title`} class="mw-card__title">
+                  Group Study {b.code}
+                </h3>
+                <dl class="mw-card__facts">
+                  <div>
+                    <dt>When</dt>
+                    <dd>
+                      {longLabel(b.date)} · {b.startTime}–{b.endTime} · <span class="mw-nowrap">{length(b)}</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Where</dt>
+                    <dd>Chifley Library, Level 3</dd>
+                  </div>
+                  <div>
+                    <dt>Booked under</dt>
+                    <dd>{b.bookedBy}</dd>
+                  </div>
+                </dl>
+                <div class="mw-card__actions">
+                  {again ? (
+                    <p class="mw-card__done">Already booked again for {longLabel(again.date)}.</p>
+                  ) : (
+                    <form method="post" action={`/api/bookings/${b.id}/rebook`}>
+                      <button class="mw-btn mw-btn--primary">
+                        Rebook for {dayLabel(shiftDate(b.date, 7))}
+                      </button>
+                    </form>
+                  )}
+                  {b.state === "upcoming" && (
+                    <form method="post" action={`/api/bookings/${b.id}/cancel`}>
+                      <input type="hidden" name="date" value={b.date} />
+                      <input type="hidden" name="return" value="week" />
+                      <button class="mw-btn mw-btn--quiet">Cancel booking</button>
+                    </form>
+                  )}
+                </div>
+                <button type="button" class="mw-card__close" popovertarget={`booking-${b.id}`} popovertargetaction="hide">
+                  Close
+                </button>
+              </div>
+            );
+          })}
+
+          <section class="mw-next" aria-labelledby="next-week">
+            <h2 id="next-week">Next week</h2>
+            {nextWeek.length === 0 ? (
+              <p class="mw-none">Nothing booked yet. Open a booking above to book the same slot again.</p>
+            ) : (
+              <ul>
+                {nextWeek.map((b) => (
+                  <li>
+                    <span class="mw-next__day">{dayLabel(b.date)}</span>
+                    <span class="mw-next__room">{b.code}</span>
+                    <span class="mw-next__time">
+                      {b.startTime}–{b.endTime}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      ) : (
+        <section class="mw-intro" aria-labelledby="whose">
+          <h2 id="whose">Whose week?</h2>
+          <p>
+            There's no login here, so the board remembers the name you last booked under. Book a room and your week
+            shows up here, or enter the name you booked with.
+          </p>
+          <form method="post" action="/api/me">
+            <label for="me-name">Your name</label>
+            <input id="me-name" name="name" required maxlength="80" autocomplete="name" />
+            <button class="mw-btn mw-btn--primary">Show my week</button>
+          </form>
+        </section>
+      )}
+    </main>
+    <script is:inline define:vars={{ weekStart, nextWeekEnd, nextBoundaryTarget }}>
+      const source = new EventSource("/api/events");
+      // A rebook or cancel from this page is itself a booking event: without
+      // this, the page would hear its own change and reload plain /my/ over
+      // the redirect that carries the confirmation.
+      document.addEventListener("submit", () => source.close(), true);
+      source.addEventListener("booking", (event) => {
+        const { date } = JSON.parse(event.data);
+        if (date >= weekStart && date <= nextWeekEnd) location.reload();
+      });
+      let hasOpenedBefore = false;
+      source.addEventListener("open", () => {
+        if (hasOpenedBefore) location.reload();
+        hasOpenedBefore = true;
+      });
+      setTimeout(() => location.reload(), Math.max(0, nextBoundaryTarget - Date.now()) + 5_000);
+    </script>
+  </body>
+</html>

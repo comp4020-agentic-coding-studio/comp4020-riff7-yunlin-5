@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { ConflictError, ValidationError, addBooking, listRooms } from "../../lib/db";
 import { bus } from "../../lib/events";
+import { rememberName } from "../../lib/me";
 
 // The board's own display and overlap logic both string-compare date/time
 // values assuming YYYY-MM-DD / HH:MM shape (see src/lib/schema.ts and
@@ -19,7 +20,7 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 // the whole flow work with no client-side JavaScript — the submitting tab
 // re-renders from the database; only the cross-tab live refresh needs a
 // script.
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ cookies, request, redirect }) => {
   const form = await request.formData();
   const date = String(form.get("date") ?? "");
   const startTime = String(form.get("startTime") ?? "");
@@ -40,6 +41,9 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   try {
     const booking = addBooking({ roomId, date, startTime, endTime, bookedBy });
     bus.emit("booking", { date: booking.date });
+    // A successful booking is how the board learns whose week to show on
+    // /my/ (see src/lib/me.ts).
+    rememberName(cookies, bookedBy);
   } catch (err) {
     if (err instanceof ValidationError) return back("invalid");
     if (err instanceof ConflictError) return back("conflict");

@@ -1,0 +1,704 @@
+/* My week: the same ink-on-paper board, laid out as a week. Ink marks what's
+ * still to come, a faded hatch what's finished, and --seal red, as
+ * everywhere else on the board, only a booking happening right now. */
+
+.my-week {
+  --muted: #6b6558;
+  --surface: #fffdf8;
+  --line-strong: #bdb4a2;
+  --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --radius: 14px;
+  --hour: 2.6rem;
+}
+
+.my-week main {
+  max-width: 68rem;
+}
+
+.mw-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- header ------------------------------------------------------------ */
+
+.mw-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 1rem;
+}
+
+.mw-head h1 {
+  margin-bottom: 0.25rem;
+}
+
+.mw-range {
+  margin: 0;
+  font-family: var(--ui);
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.mw-notice {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  font-family: var(--ui);
+  font-size: 0.92rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--ink);
+  border-radius: 10px;
+  animation: mw-rise 0.35s var(--ease) backwards;
+}
+
+.mw-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.25rem;
+  font-family: var(--ui);
+  font-size: 0.95rem;
+}
+
+.mw-who p {
+  margin: 0;
+}
+
+.mw-counts {
+  color: var(--muted);
+}
+
+.mw-change summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.mw-change form,
+.mw-intro form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.mw-change label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.my-week input {
+  font: inherit;
+  font-family: var(--ui);
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.my-week input:focus-visible {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgb(35 33 29 / 16%);
+}
+
+.mw-change button,
+.mw-btn {
+  font: inherit;
+  font-family: var(--ui);
+  font-size: 0.9rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--ink);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 0.12s var(--ease),
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.mw-btn--primary,
+.mw-change button {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.mw-btn--quiet {
+  border-color: var(--line-strong);
+}
+
+.mw-btn:hover,
+.mw-change button:hover {
+  box-shadow: 0 6px 16px -10px rgb(35 33 29 / 60%);
+}
+
+.mw-btn:active,
+.mw-change button:active {
+  transform: scale(0.97);
+}
+
+.mw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0.75rem;
+  font-family: var(--ui);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.mw-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mw-swatch {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 4px;
+}
+
+/* ---- the calendar -------------------------------------------------------- */
+
+.mw-cal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 rgb(35 33 29 / 4%),
+    0 18px 40px -28px rgb(35 33 29 / 45%);
+  overflow: hidden;
+}
+
+.mw-grid {
+  display: grid;
+  grid-template-columns: 3.5rem repeat(7, minmax(0, 1fr));
+  font-family: var(--ui);
+}
+
+.mw-gutter {
+  position: relative;
+  margin-top: 3.6rem; /* the day headers' height */
+  height: calc(var(--hours) * var(--hour));
+  border-right: 1px solid var(--line);
+}
+
+.mw-gutter span {
+  position: absolute;
+  top: calc(var(--at) / 60 * var(--hour));
+  right: 0.5rem;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.mw-gutter span:first-child {
+  transform: none;
+}
+
+.mw-day {
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  animation: mw-rise 0.4s var(--ease) backwards;
+}
+
+.mw-day:last-child {
+  border-right: 0;
+}
+
+.mw-day:nth-child(3) { animation-delay: 30ms; }
+.mw-day:nth-child(4) { animation-delay: 60ms; }
+.mw-day:nth-child(5) { animation-delay: 90ms; }
+.mw-day:nth-child(6) { animation-delay: 120ms; }
+.mw-day:nth-child(7) { animation-delay: 150ms; }
+.mw-day:nth-child(8) { animation-delay: 180ms; }
+
+.mw-dayhead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 3.6rem;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  font-weight: normal;
+  line-height: 1.1;
+}
+
+.mw-dayhead__name {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.mw-dayhead__num {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  margin-top: 0.15rem;
+  border-radius: 999px;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 1.1rem;
+}
+
+.mw-day--today .mw-dayhead__num {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.mw-day--today .mw-dayhead__name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.mw-day--today .mw-lane {
+  background-color: rgb(35 33 29 / 3%);
+}
+
+.mw-day--past .mw-lane {
+  background-image:
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
+    repeating-linear-gradient(-45deg, transparent 0 6px, rgb(35 33 29 / 2.5%) 6px 7px);
+  background-size: 100% var(--hour), auto;
+}
+
+.mw-lane {
+  position: relative;
+  height: calc(var(--hours) * var(--hour));
+  background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 100% var(--hour);
+}
+
+.mw-none {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mw-lane .mw-none {
+  display: none;
+}
+
+.mw-nowline {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: calc(var(--at) / 60 * var(--hour));
+  border-top: 2px solid var(--ink);
+  pointer-events: none;
+}
+
+.mw-nowline::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+/* ---- a booking on the calendar -------------------------------------------- */
+
+.mw-slot {
+  position: absolute;
+  z-index: 1;
+  left: 4px;
+  right: 4px;
+  top: calc(var(--from) / 60 * var(--hour) + 1px);
+  height: calc((var(--to) - var(--from)) / 60 * var(--hour) - 3px);
+  min-height: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  padding: 0.3rem 0.45rem;
+  overflow: hidden;
+  font: inherit;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+  animation: mw-pop 0.35s var(--ease) backwards;
+  animation-delay: 0.15s;
+}
+
+.mw-slot:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -14px rgb(35 33 29 / 70%);
+}
+
+.mw-slot:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.mw-slot:active {
+  transform: scale(0.98);
+}
+
+.mw-slot__room {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 0.95rem;
+  line-height: 1.15;
+}
+
+.mw-slot__time {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.mw-slot--upcoming,
+.mw-swatch--upcoming {
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+}
+
+.mw-slot--now,
+.mw-swatch--now {
+  background: var(--seal);
+  color: var(--paper);
+  border: 1px solid var(--seal);
+}
+
+.mw-slot--past,
+.mw-swatch--past {
+  background: repeating-linear-gradient(-45deg, #f1ece1 0 5px, #e8e2d5 5px 6px);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+
+.mw-empty {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--line);
+  font-family: var(--ui);
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+/* ---- the booking card (a native popover) ----------------------------------- */
+
+.mw-card {
+  width: min(24rem, calc(100vw - 2rem));
+  padding: 1.4rem 1.5rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--ui);
+  box-shadow: 0 30px 70px -30px rgb(35 33 29 / 55%);
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition:
+    opacity 0.2s var(--ease),
+    transform 0.2s var(--ease),
+    overlay 0.2s allow-discrete,
+    display 0.2s allow-discrete;
+}
+
+.mw-card:popover-open {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  .mw-card:popover-open {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.mw-card::backdrop {
+  background: rgb(35 33 29 / 0%);
+  transition:
+    background 0.2s,
+    overlay 0.2s allow-discrete,
+    display 0.2s allow-discrete;
+}
+
+.mw-card:popover-open::backdrop {
+  background: rgb(35 33 29 / 28%);
+}
+
+@starting-style {
+  .mw-card:popover-open::backdrop {
+    background: rgb(35 33 29 / 0%);
+  }
+}
+
+.mw-card__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.mw-card__state::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.mw-card--upcoming .mw-card__state::before {
+  background: var(--ink);
+}
+
+.mw-card--now .mw-card__state {
+  color: var(--seal);
+}
+
+.mw-card--now .mw-card__state::before {
+  background: var(--seal);
+}
+
+.mw-card__title {
+  margin: 0.35rem 0 0.9rem;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 1.45rem;
+  font-weight: normal;
+}
+
+.mw-card__facts {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 1.2rem;
+  font-size: 0.9rem;
+}
+
+.mw-card__facts div {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  gap: 0.5rem;
+}
+
+.mw-card__facts dt {
+  color: var(--muted);
+}
+
+.mw-card__facts dd {
+  margin: 0;
+}
+
+.mw-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.mw-card__actions form {
+  margin: 0;
+}
+
+.mw-card__done {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.mw-card__close {
+  position: absolute;
+  top: 0.9rem;
+  right: 1rem;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.mw-card__close:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+/* ---- next week, and the no-name state -------------------------------------- */
+
+.mw-next {
+  margin-top: 2rem;
+  font-family: var(--ui);
+}
+
+.mw-next h2,
+.mw-intro h2 {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 1.2rem;
+  font-weight: normal;
+  margin: 0 0 0.6rem;
+}
+
+.mw-next ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.mw-next li {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.92rem;
+  animation: mw-rise 0.35s var(--ease) backwards;
+}
+
+.mw-next__day {
+  min-width: 7.5rem;
+  color: var(--muted);
+}
+
+.mw-next__room {
+  font-family: Georgia, "Times New Roman", Times, serif;
+}
+
+.mw-next__time {
+  font-variant-numeric: tabular-nums;
+}
+
+.mw-intro {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--ui);
+}
+
+.mw-intro p {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+.mw-intro label {
+  font-size: 0.9rem;
+}
+
+@keyframes mw-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes mw-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* ---- phones: the week becomes a day-by-day agenda ------------------------- */
+
+@media (max-width: 720px) {
+  .my-week {
+    padding: 1.25rem 1rem;
+  }
+
+  .mw-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mw-gutter,
+  .mw-nowline {
+    display: none;
+  }
+
+  .mw-day {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    align-items: start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mw-day:last-child {
+    border-bottom: 0;
+  }
+
+  .mw-dayhead {
+    height: auto;
+    border-bottom: 0;
+  }
+
+  .mw-lane {
+    height: auto;
+    display: grid;
+    gap: 0.4rem;
+    background: none !important;
+  }
+
+  .mw-lane .mw-none {
+    display: block;
+    padding-top: 0.55rem;
+  }
+
+  .mw-slot {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+  }
+
+  .mw-slot__time {
+    font-size: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-week *,
+  .my-week *::before,
+  .my-week *::after,
+  .my-week *::backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.mw-nowrap {
+  white-space: nowrap;
+}

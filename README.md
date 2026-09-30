@@ -52,3 +52,16 @@ in the list and the caption below it, for anyone who can't see it.
 Enforced by `spec/floor.test.ts`: every room on the board has a place on the
 plan, and a room in use right now is marked in use on the floor and named in
 its caption.
+
+## My week
+
+`/my/` lays out everything booked under your name this week as a calendar,
+with next week's bookings listed underneath. Open a booking to book the same
+room at the same time a week later, or, if it hasn't started yet, to cancel
+it. A rebook that would clash is refused, the same as any other booking.
+There's still no login: the board remembers the name you last booked under
+in a cookie, and you can switch to another name on the page. Anyone who
+types the same name sees the same week, just as anyone can already cancel
+any booking on the board.
+
+Enforced by `spec/my-week.test.ts`.
