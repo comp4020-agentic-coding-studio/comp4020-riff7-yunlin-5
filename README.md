@@ -44,8 +44,9 @@ Chifley Library's Level 3, traced from the library's own floor plan, with the
 four group study rooms it books (3.04--3.07) standing on it. The same red
 still means only one thing: a room goes red while a booking in it is
 happening right now, the same answer the list gives, and it updates whenever
-the list does. Drag to turn the floor; click a room to pick it in the booking
-form. The model is traced by eye, with no scale bar to go on, so the shapes
+the list does. Drag to turn the floor; click a room to see its status and bookings in a card beside it.
+The card follows the room as you turn the floor; choose “Book this room”
+when you want to open the booking form. The model is traced by eye, with no scale bar to go on, so the shapes
 are right and the metres are approximate --- and everything it shows is also
 in the list and the caption below it, for anyone who can't see it.
 
