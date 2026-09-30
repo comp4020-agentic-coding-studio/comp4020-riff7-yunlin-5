@@ -146,6 +146,11 @@ const nextBoundaryTarget = isToday
         <strong>{date}{isToday ? " (today)" : ""}</strong>
         <a href={`/?date=${shiftDate(date, 1)}`}>{shiftDate(date, 1)} &rarr;</a>
       </nav>
+      {/* Filled in by src/scripts/board-live.ts. With scripts off the page is a
+          snapshot, so it stays hidden. data-next-boundary is the same instant
+          the inline script below waits for, carried as data so a patched-in
+          render can hand its own next boundary to the live script. */}
+      <p class="board-live" data-next-boundary={nextBoundaryTarget ?? ""} hidden></p>
 
       <figure class="floor3d" data-rooms={JSON.stringify(onFloor)} data-date={date}>
         <div class="floor3d-stage"></div>
@@ -280,26 +285,41 @@ const nextBoundaryTarget = isToday
       </div>
     </main>
     <script is:inline define:vars={{ date, nextBoundaryTarget }}>
-      // The board's live half: any tab looking at this same date reloads the
-      // moment a booking is made or cancelled anywhere, so two people looking
-      // at the same day never work from stale information. The form itself
-      // needs none of this — its own POST + redirect already re-renders from
-      // SQLite.
+      // The board's live half: any tab looking at this same date brings itself
+      // up to date the moment a booking is made or cancelled anywhere, so two
+      // people looking at the same day never work from stale information.
+      //
+      // This inline script only notices *that* the board may be stale. Making
+      // it fresh is src/scripts/board-live.ts's job: once loaded it installs
+      // window.roomBoardLive, and every signal below is handed to it, so it can
+      // re-fetch this page and patch the rooms list, the caption, the booking
+      // form's data and the 3D model in place, with no reload to throw away
+      // the camera, scroll position or anything half-typed. If that module
+      // never loaded (an old browser, a failed request), the fallback is the
+      // board's earlier behaviour: a full reload, which is always correct.
+      const stale = (reason) => {
+        const live = window.roomBoardLive;
+        if (live) live.refresh(reason);
+        else location.reload();
+      };
       const source = new EventSource("/api/events");
+      // board-live.ts closes this when the page submits one of its own forms,
+      // so the tab never patches or reloads over its own POST + redirect.
+      window.roomBoardSource = source;
       source.addEventListener("booking", (event) => {
         const payload = JSON.parse(event.data);
-        if (payload.date === date) location.reload();
+        if (payload.date === date) stale("booking");
       });
 
       // The SSE stream carries no state of its own, just a "something
       // changed" signal — so a connection that drops (a network blip, a
       // server restart on deploy) and reconnects has no way to know what it
       // missed while it was down. "open" fires on every reconnect as well as
-      // the first connect; reload on every one after the first, since by
+      // the first connect; refresh on every one after the first, since by
       // then the only safe assumption is that something might have changed.
       let hasOpenedBefore = false;
       source.addEventListener("open", () => {
-        if (hasOpenedBefore) location.reload();
+        if (hasOpenedBefore) stale("reconnect");
         hasOpenedBefore = true;
       });
 
@@ -319,8 +339,14 @@ const nextBoundaryTarget = isToday
       // takes the delay from its own clock at load time, rather than
       // trusting a minute count computed at render time to still equal the
       // same number of real milliseconds by the time it fires.
+      //
+      // board-live.ts keeps its own boundary timer (every patch brings a new
+      // next boundary, read from .board-live's data-next-boundary), so this
+      // one only acts as the reload fallback when that module isn't there.
       if (nextBoundaryTarget !== null) {
-        setTimeout(() => location.reload(), Math.max(0, nextBoundaryTarget - Date.now()) + 5_000);
+        setTimeout(() => {
+          if (!window.roomBoardLive) location.reload();
+        }, Math.max(0, nextBoundaryTarget - Date.now()) + 5_000);
       }
     </script>
     <script>
@@ -330,6 +356,9 @@ const nextBoundaryTarget = isToday
     </script>
     <script>
       import "../scripts/booking-form";
+    </script>
+    <script>
+      import "../scripts/board-live";
     </script>
   </body>
 </html>
