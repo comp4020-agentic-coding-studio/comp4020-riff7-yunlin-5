@@ -25,13 +25,22 @@ export const db = drizzle(client);
 migrate(db, { migrationsFolder: "./drizzle" });
 
 // The rooms themselves aren't something a booking app's users create — they're
-// the fixed slice of the real system this prototype stands in for (a handful
-// of ANU Library group study rooms). Seeded once, on whichever machine boots
-// first against an empty database; never re-seeded once a room exists, so a
-// deploy never resets what's already there.
-const SEEDED_ROOMS = ["Hancock — Group Room 1", "Hancock — Group Room 2", "Chifley — Group Room 3"];
-if (db.select().from(rooms).limit(1).all().length === 0) {
-  for (const name of SEEDED_ROOMS) db.insert(rooms).values({ name }).run();
+// the fixed slice of the real system this prototype stands in for: the four
+// group study rooms on Chifley Library's Level 3, named as the library's own
+// floor plan names them. Upserted
+// by id on every boot, so a database seeded under the old placeholder names
+// is renamed in place and keeps its bookings, and a deploy never resets them.
+const SEEDED_ROOMS = [
+  "Chifley — Group Study 3.04",
+  "Chifley — Group Study 3.05",
+  "Chifley — Group Study 3.06",
+  "Chifley — Group Study 3.07",
+];
+for (const [index, name] of SEEDED_ROOMS.entries()) {
+  db.insert(rooms)
+    .values({ id: index + 1, name })
+    .onConflictDoUpdate({ target: rooms.id, set: { name } })
+    .run();
 }
 
 export type { Booking, Room };
