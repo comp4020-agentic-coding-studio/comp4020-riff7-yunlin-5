@@ -5,5 +5,5 @@ import { rememberName } from "../../lib/me";
 export const POST: APIRoute = async ({ cookies, request, redirect }) => {
   const form = await request.formData();
   rememberName(cookies, String(form.get("name") ?? "").trim().slice(0, 80));
-  return redirect("/my/", 303);
+  return redirect("/#my-week", 303);
 };

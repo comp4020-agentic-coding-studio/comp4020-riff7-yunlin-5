@@ -2,7 +2,7 @@ import { JSDOM } from "jsdom";
 import { describe, expect, inject, it } from "vitest";
 import { canberraParts, shiftDate } from "../src/lib/clock";
 
-// My week (/my/): the bookings made under your name this week, as a
+// My week (the #my-week section of the board): the bookings made under your name this week, as a
 // calendar, each one openable to rebook the same slot next week or, if it
 // hasn't started yet, to cancel it. There's no login, so "your name" is the
 // one the browser last booked under, kept in a cookie. Driven against the
@@ -27,7 +27,7 @@ const cookieFrom = (res: Response) =>
     .join("; ");
 
 const myWeek = async (cookie: string, query = "") => {
-  const res = await fetch(new URL(`/my/${query}`, baseUrl), { headers: { cookie } });
+  const res = await fetch(new URL(`/${query}`, baseUrl), { headers: { cookie } });
   return new JSDOM(await res.text()).window.document;
 };
 
@@ -40,7 +40,7 @@ const canBookEarlierToday = nowTime >= "00:10";
 describe("my week", () => {
   it("asks whose week it is when the browser hasn't booked anything", async () => {
     const doc = await myWeek("");
-    expect(doc.querySelector("h1")?.textContent).toBe("My week");
+    expect(doc.querySelector("#my-week-title")?.textContent).toBe("My week");
     expect(doc.querySelector('form[action="/api/me"] input[name="name"]')).toBeTruthy();
   });
 
@@ -65,7 +65,7 @@ describe("my week", () => {
     const cookie = cookieFrom(await book(mine, today, "07:00", "07:30"));
     await book(theirs, today, "07:30", "08:00");
     const doc = await myWeek(cookie);
-    expect(doc.body.textContent).not.toContain(theirs);
+    expect(doc.querySelector("#my-week")?.textContent).not.toContain(theirs);
     expect(doc.querySelectorAll(".mw-slot")).toHaveLength(1);
   });
 
@@ -78,7 +78,7 @@ describe("my week", () => {
 
     const first = await post(action ?? "", new URLSearchParams(), cookie);
     expect(first.status).toBe(303);
-    expect(first.headers.get("location")).toMatch(/^\/my\/\?rebooked=\d+$/);
+    expect(first.headers.get("location")).toMatch(/^\/\?rebooked=\d+#my-week$/);
     const board = await fetch(new URL(`/?date=${shiftDate(today, 7)}`, baseUrl)).then((r) => r.text());
     expect(board).toContain(who);
 
@@ -88,7 +88,7 @@ describe("my week", () => {
     expect(after.querySelector('.mw-card form[action$="/rebook"]')).toBeNull();
 
     const again = await post(action ?? "", new URLSearchParams(), cookie);
-    expect(again.headers.get("location")).toContain("error=conflict");
+    expect(again.headers.get("location")).toContain("rebookError=conflict");
   });
 
   it.skipIf(!canBookLaterToday)("offers to cancel an upcoming booking, and cancelling lands back on the week", async () => {
@@ -103,7 +103,7 @@ describe("my week", () => {
       new URLSearchParams({ date: today, return: "week" }),
       cookie,
     );
-    expect(res.headers.get("location")).toBe("/my/?cancelled=1");
+    expect(res.headers.get("location")).toBe("/?cancelled=1#my-week");
     expect((await myWeek(cookie)).querySelectorAll(".mw-slot")).toHaveLength(0);
   });
 

@@ -183,3 +183,133 @@ nav[aria-label="date"] {
   color: #6b6558;
   margin-top: 0.4rem;
 }
+
+/* ---- one page: jump buttons, calls to action ------------------------------ */
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 4.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.jump {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: -2rem -2rem 0;
+  padding: 0.7rem 2rem;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.jump__brand {
+  margin-right: auto;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-weight: bold;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.jump__btn,
+.cta__btn,
+.datenav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fffdf8;
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition:
+    transform 0.15s cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+
+.jump__btn:hover,
+.cta__btn:hover,
+.datenav a:hover {
+  border-color: var(--ink);
+  box-shadow: 0 8px 18px -12px rgb(35 33 29 / 60%);
+  transform: translateY(-1px);
+}
+
+.jump__btn:active,
+.cta__btn:active {
+  transform: scale(0.97);
+}
+
+.jump__btn--quiet {
+  color: #6b6558;
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.cta__btn {
+  padding: 0.65rem 1.25rem;
+  font-size: 0.95rem;
+}
+
+.cta__btn--primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+#floor,
+#rooms {
+  scroll-margin-top: 4.5rem;
+}
+
+/* My week needs more width than the board's reading column. */
+#my-week {
+  width: min(68rem, calc(100vw - 2rem));
+  margin: 3rem 0 2rem calc(50% - min(34rem, 50vw - 1rem));
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.mw-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.8rem;
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 1.25rem 1rem;
+  }
+
+  .jump {
+    margin: -1.25rem -1rem 0;
+    padding: 0.6rem 1rem;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .jump__brand {
+    display: none;
+  }
+
+  .jump__btn {
+    flex: none;
+  }
+}

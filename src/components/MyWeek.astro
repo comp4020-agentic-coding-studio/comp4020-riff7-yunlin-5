@@ -3,7 +3,6 @@ import { canberraParts, nextReloadTargetEpochMs, shiftDate } from "../lib/clock"
 import { type NamedBooking, getBooking, listBookingsByName, listRooms } from "../lib/db";
 import { roomForName } from "../lib/floorplan";
 import { myName } from "../lib/me";
-import "../styles.css";
 import "../styles/my-week.css";
 
 // My week: every booking made under your name this week, laid out as a
@@ -81,14 +80,14 @@ if (rebookedId) {
     notice = `Rebooked ${code(room.name)} for ${longLabel(made.date)}, ${made.startTime}–${made.endTime}.`;
 } else if (params.get("cancelled")) {
   notice = "Booking cancelled. The room is free again for anyone who needs it.";
-} else if (params.get("error") === "conflict") {
+} else if (params.get("rebookError") === "conflict") {
   const from = getBooking(Number(params.get("from")));
   const room = from && listRooms().find((r) => r.id === from.roomId);
   notice =
     from && room
       ? `Couldn't rebook: ${code(room.name)} is already taken on ${longLabel(shiftDate(from.date, 7))} for part of ${from.startTime}–${from.endTime}. Nothing was booked.`
       : "Couldn't rebook: that slot is already taken next week. Nothing was booked.";
-} else if (params.get("error") === "gone") {
+} else if (params.get("rebookError") === "gone") {
   notice = "That booking doesn't exist any more.";
 }
 
@@ -102,24 +101,9 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
 );
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Your Chifley Level 3 group study room bookings this week — rebook one for next week or cancel one you don't need." />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>My week · Room board</title>
-  </head>
-  <body class="my-week">
-    <nav aria-label="site">
-      <a href="/">Room board</a>
-      <a href="/my/" aria-current="page">My week</a>
-      <a href="/readme/">About</a>
-    </nav>
-    <main>
+<section id="my-week" class="my-week" aria-labelledby="my-week-title">
       <header class="mw-head">
-        <h1>My week</h1>
+        <h2 class="mw-title" id="my-week-title">My week</h2>
         <p class="mw-range">{dayLabel(weekStart)} – {dayLabel(weekEnd)}</p>
       </header>
 
@@ -158,7 +142,7 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
           </ul>
 
           <section class="mw-cal" aria-labelledby="this-week">
-            <h2 id="this-week" class="mw-visually-hidden">This week</h2>
+            <h3 id="this-week" class="mw-visually-hidden">This week</h3>
             <div class="mw-grid" style={`--hours: ${hours.length}`}>
               <div class="mw-gutter" aria-hidden="true">
                 {hours.map((h) => (
@@ -169,11 +153,11 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
                 const mine = thisWeek.filter((b) => b.date === day);
                 return (
                   <div class:list={["mw-day", { "mw-day--today": day === today, "mw-day--past": day < today }]}>
-                    <h3 class="mw-dayhead">
+                    <h4 class="mw-dayhead">
                       <span class="mw-dayhead__name">{partFmt(day, "weekday")}</span>
                       <span class="mw-dayhead__num">{partFmt(day, "day")}</span>
                       {day === today && <span class="mw-visually-hidden"> (today)</span>}
-                    </h3>
+                    </h4>
                     <div class="mw-lane">
                       {day === today && nowInRange && (
                         <div class="mw-nowline" style={`--at: ${nowOffset}`} aria-hidden="true" />
@@ -201,7 +185,7 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
 
             {thisWeek.length === 0 && (
               <p class="mw-empty">
-                Nothing booked under {name} this week. <a href="/#book">Book a room</a> and it'll show up here.
+                Nothing booked under {name} this week. <a class="mw-btn mw-btn--primary" href="#book">Book a room</a> and it'll show up here.
               </p>
             )}
           </section>
@@ -211,9 +195,9 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
             return (
               <div popover id={`booking-${b.id}`} class={`mw-card mw-card--${b.state}`} role="dialog" aria-labelledby={`booking-${b.id}-title`}>
                 <p class="mw-card__state">{stateLabel[b.state]}</p>
-                <h3 id={`booking-${b.id}-title`} class="mw-card__title">
+                <h4 id={`booking-${b.id}-title`} class="mw-card__title">
                   Group Study {b.code}
-                </h3>
+                </h4>
                 <dl class="mw-card__facts">
                   <div>
                     <dt>When</dt>
@@ -256,7 +240,7 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
           })}
 
           <section class="mw-next" aria-labelledby="next-week">
-            <h2 id="next-week">Next week</h2>
+            <h3 id="next-week">Next week</h3>
             {nextWeek.length === 0 ? (
               <p class="mw-none">Nothing booked yet. Open a booking above to book the same slot again.</p>
             ) : (
@@ -276,7 +260,7 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
         </>
       ) : (
         <section class="mw-intro" aria-labelledby="whose">
-          <h2 id="whose">Whose week?</h2>
+          <h3 id="whose">Whose week?</h3>
           <p>
             There's no login here, so the board remembers the name you last booked under. Book a room and your week
             shows up here, or enter the name you booked with.
@@ -288,23 +272,4 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
           </form>
         </section>
       )}
-    </main>
-    <script is:inline define:vars={{ weekStart, nextWeekEnd, nextBoundaryTarget }}>
-      const source = new EventSource("/api/events");
-      // A rebook or cancel from this page is itself a booking event: without
-      // this, the page would hear its own change and reload plain /my/ over
-      // the redirect that carries the confirmation.
-      document.addEventListener("submit", () => source.close(), true);
-      source.addEventListener("booking", (event) => {
-        const { date } = JSON.parse(event.data);
-        if (date >= weekStart && date <= nextWeekEnd) location.reload();
-      });
-      let hasOpenedBefore = false;
-      source.addEventListener("open", () => {
-        if (hasOpenedBefore) location.reload();
-        hasOpenedBefore = true;
-      });
-      setTimeout(() => location.reload(), Math.max(0, nextBoundaryTarget - Date.now()) + 5_000);
-    </script>
-  </body>
-</html>
+    </section>

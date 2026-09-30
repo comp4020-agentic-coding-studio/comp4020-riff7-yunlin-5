@@ -9,7 +9,7 @@ import { bus } from "../../../../lib/events";
 // calendar says so instead of quietly booking something else.
 export const POST: APIRoute = async ({ params, redirect }) => {
   const original = getBooking(Number(params.id));
-  if (!original) return redirect("/my/?error=gone", 303);
+  if (!original) return redirect("/?rebookError=gone#my-week", 303);
   try {
     const next = addBooking({
       roomId: original.roomId,
@@ -19,9 +19,9 @@ export const POST: APIRoute = async ({ params, redirect }) => {
       bookedBy: original.bookedBy,
     });
     bus.emit("booking", { date: next.date });
-    return redirect(`/my/?rebooked=${next.id}`, 303);
+    return redirect(`/?rebooked=${next.id}#my-week`, 303);
   } catch (err) {
-    if (err instanceof ConflictError) return redirect(`/my/?error=conflict&from=${original.id}`, 303);
+    if (err instanceof ConflictError) return redirect(`/?rebookError=conflict&from=${original.id}#my-week`, 303);
     throw err;
   }
 };

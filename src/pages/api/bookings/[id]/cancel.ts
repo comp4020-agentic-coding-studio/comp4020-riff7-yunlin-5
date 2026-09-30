@@ -22,6 +22,6 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
   // Cancelling from the My week calendar lands back on it; from anywhere
   // else, on the board for the submitted date. A fixed name, never a URL
   // taken from the form, so this can't be turned into an open redirect.
-  if (form.get("return") === "week") return redirect("/my/?cancelled=1", 303);
+  if (form.get("return") === "week") return redirect("/?cancelled=1#my-week", 303);
   return redirect(`/?${new URLSearchParams({ date })}`, 303);
 };

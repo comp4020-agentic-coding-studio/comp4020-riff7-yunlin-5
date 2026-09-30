@@ -3,6 +3,7 @@ import { canberraParts, canberraWallTimeToEpochMs, nextReloadTargetEpochMs, shif
 import { listBookingsForDate, listRooms } from "../lib/db";
 import { roomForName } from "../lib/floorplan";
 import { DURATIONS, lengthLabel } from "../lib/timeslots";
+import MyWeek from "../components/MyWeek.astro";
 import "../styles.css";
 import "../styles/booking-form.css";
 
@@ -129,25 +130,34 @@ const nextBoundaryTarget = isToday
     <title>Room board</title>
   </head>
   <body>
-    <nav aria-label="site">
-      <a href="/">Room board</a>
-      <a href="/my/">My week</a>
-      <a href="/readme/">About</a>
+    <nav aria-label="site" class="jump">
+      <a href="#top" class="jump__brand">Room board</a>
+      <a href="#floor" class="jump__btn">Floor</a>
+      <a href="#book" class="jump__btn">Book</a>
+      <a href="#rooms" class="jump__btn">Today's rooms</a>
+      <a href="#my-week" class="jump__btn">My week</a>
+      <a href="/readme/" class="jump__btn jump__btn--quiet">About</a>
     </nav>
-    <main>
+    <main id="top">
       <h1>Room board</h1>
       <p>
         A shared, live view of a handful of ANU Library group study rooms: who's booked what, and what's free — see
-        the <a href="/readme/">README</a> for what this prototype is standing in for.
+        the <a href="/readme/">About page</a> for what this prototype is standing in for.
       </p>
 
-      <nav aria-label="date">
+      <nav aria-label="date" class="datenav">
         <a href={`/?date=${shiftDate(date, -1)}`}>&larr; {shiftDate(date, -1)}</a>
         <strong>{date}{isToday ? " (today)" : ""}</strong>
         <a href={`/?date=${shiftDate(date, 1)}`}>{shiftDate(date, 1)} &rarr;</a>
       </nav>
 
-      <figure class="floor3d" data-rooms={JSON.stringify(onFloor)} data-date={date}>
+      <div class="cta">
+        <a href="#book" class="cta__btn cta__btn--primary">Book a room</a>
+        <a href="#my-week" class="cta__btn">See my week</a>
+        <a href="#floor" class="cta__btn">Find it on the floor</a>
+      </div>
+
+      <figure id="floor" class="floor3d" data-rooms={JSON.stringify(onFloor)} data-date={date}>
         <div class="floor3d-stage"></div>
         {/* Filled by src/scripts/floor3d-time.ts and floor3d-route.ts once the model mounts. */}
         <div class="floor3d-time" hidden></div>
@@ -256,7 +266,7 @@ const nextBoundaryTarget = isToday
         </div>
       </form>
 
-      <div class="rooms">
+      <div id="rooms" class="rooms">
         {roomsWithBookings.map(({ room, bookings }) => (
           <section class="room" aria-labelledby={`room-${room.id}`}>
             <h2 id={`room-${room.id}`}>{room.name}</h2>
@@ -278,6 +288,7 @@ const nextBoundaryTarget = isToday
           </section>
         ))}
       </div>
+      <MyWeek />
     </main>
     <script is:inline define:vars={{ date, nextBoundaryTarget }}>
       // The board's live half: any tab looking at this same date reloads the
