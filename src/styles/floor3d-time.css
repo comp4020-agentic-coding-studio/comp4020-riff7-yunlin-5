@@ -1,0 +1,341 @@
+/* The floor's time slider (src/scripts/floor3d-time.ts). Ink on paper like
+ * the booking form: ink is the action colour (the thumb, a pressed chip,
+ * focus), and the occupancy strip behind the track is ink at low strength.
+ * Nothing here is --seal red: red means "a booking happening right now", and
+ * only the core's live look of the model shows that. */
+
+.floor3d-time {
+  --ft-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ft-muted: #6b6558;
+  --ft-surface: #fffdf8;
+  --ft-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ft-thumb: 14px;
+  --ft-strip: 36px;
+
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.6rem;
+  padding: 0.75rem 0.9rem 0.8rem;
+  background: var(--ft-surface);
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  font-family: var(--ft-ui);
+  min-width: 0;
+}
+
+.floor3d-time[hidden],
+.floor3d-time [hidden] {
+  display: none;
+}
+
+/* ---- head: label and Now ---------------------------------------------- */
+
+.ft-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.9rem;
+}
+
+.ft-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ft-muted);
+}
+
+/* ---- the track: occupancy strip, now tick, hours, range ---------------- */
+
+.ft-track {
+  position: relative;
+  height: calc(var(--ft-strip) + 1.2rem);
+}
+
+/* Inset by half a thumb, so a minute on the strip sits under the thumb's
+ * centre when the slider is at that minute. */
+.ft-rail {
+  position: absolute;
+  inset: 0 calc(var(--ft-thumb) / 2);
+}
+
+.ft-strip {
+  display: block;
+  width: 100%;
+  height: var(--ft-strip);
+  border-bottom: 1px solid var(--ft-muted);
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent calc(var(--ft-strip) / 4 - 1px),
+    rgb(35 33 29 / 6%) calc(var(--ft-strip) / 4 - 1px),
+    rgb(35 33 29 / 6%) calc(var(--ft-strip) / 4)
+  );
+}
+
+.ft-strip__area {
+  fill: rgb(35 33 29 / 20%);
+}
+
+.ft-strip__edge {
+  fill: none;
+  stroke: rgb(35 33 29 / 55%);
+  stroke-width: 1px;
+}
+
+.ft-nowtick {
+  position: absolute;
+  top: -3px;
+  height: calc(var(--ft-strip) + 3px);
+  width: 0;
+  border-left: 1px dashed var(--ink);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+.ft-nowtick::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -3.5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.ft-hours {
+  position: absolute;
+  top: calc(var(--ft-strip) + 0.2rem);
+  left: 0;
+  right: 0;
+  height: 1rem;
+}
+
+.ft-hour {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ft-muted);
+}
+
+.ft-range {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--ft-strip);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+.ft-range::-webkit-slider-runnable-track {
+  height: var(--ft-strip);
+  background: transparent;
+  border: 0;
+}
+
+.ft-range::-moz-range-track {
+  height: var(--ft-strip);
+  background: transparent;
+  border: 0;
+}
+
+/* The thumb is a playhead across the strip: filled ink at a chosen time,
+ * hollow while it's following the clock live. */
+.ft-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--ft-thumb);
+  height: calc(var(--ft-strip) + 6px);
+  margin-top: -3px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--ft-surface);
+  transition:
+    background-color 160ms var(--ft-ease),
+    transform 120ms var(--ft-ease);
+}
+
+.ft-range::-moz-range-thumb {
+  width: var(--ft-thumb);
+  height: calc(var(--ft-strip) + 6px);
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--ft-surface);
+  transition:
+    background-color 160ms var(--ft-ease),
+    transform 120ms var(--ft-ease);
+}
+
+.floor3d-time.is-live .ft-range::-webkit-slider-thumb {
+  background: var(--ft-surface);
+}
+
+.floor3d-time.is-live .ft-range::-moz-range-thumb {
+  background: var(--ft-surface);
+}
+
+.ft-range:active::-webkit-slider-thumb {
+  transform: scaleX(1.25);
+}
+
+.ft-range:active::-moz-range-thumb {
+  transform: scaleX(1.25);
+}
+
+.ft-range:focus {
+  outline: none;
+}
+
+/* Focus rings the thumb itself, clear of the hour labels below. */
+.ft-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--ft-surface),
+    0 0 0 4px var(--ink);
+}
+
+.ft-range:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 2px var(--ft-surface),
+    0 0 0 4px var(--ink);
+}
+
+/* ---- foot: readout and jumps ------------------------------------------- */
+
+.ft-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem 0.75rem;
+}
+
+.ft-readout {
+  margin: 0;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.ft-readout__time {
+  font-weight: 600;
+}
+
+.ft-readout__sep {
+  color: var(--ft-muted);
+}
+
+.ft-readout__free {
+  display: inline-block;
+}
+
+.ft-readout__free.is-changing {
+  animation: ft-fade 240ms var(--ft-ease) both;
+}
+
+.ft-jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ft-now,
+.ft-jump {
+  font-family: var(--ft-ui);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  padding: 0.32rem 0.7rem;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ft-ease),
+    border-color 160ms var(--ft-ease),
+    color 160ms var(--ft-ease),
+    transform 120ms var(--ft-ease);
+}
+
+.ft-now {
+  font-weight: 600;
+}
+
+.ft-now:hover,
+.ft-jump:hover {
+  border-color: var(--ink);
+}
+
+.ft-now:active,
+.ft-jump:active {
+  transform: scale(0.96);
+}
+
+.ft-now[aria-pressed="true"],
+.ft-jump[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.ft-now:focus-visible,
+.ft-jump:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ft-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 520px) {
+  .floor3d-time {
+    padding: 0.65rem 0.7rem 0.7rem;
+  }
+
+  .ft-readout {
+    flex: 1 1 100%;
+  }
+
+  .ft-jump {
+    padding: 0.3rem 0.55rem;
+  }
+}
+
+/* ---- motion ------------------------------------------------------------ */
+
+@keyframes ft-fade {
+  from {
+    opacity: 0.2;
+    transform: translateY(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor3d-time *,
+  .floor3d-time *::before,
+  .floor3d-time *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
