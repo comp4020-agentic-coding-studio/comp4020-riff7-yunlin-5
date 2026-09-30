@@ -24,6 +24,10 @@ export const bookings = sqliteTable("bookings", {
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   bookedBy: text("booked_by").notNull(),
+  // A salted scrypt hash of the cancel code the booker chose (see
+  // src/lib/cancel-code.ts); the code itself is never stored. Null only for
+  // bookings made before codes existed, which stay cancellable by anyone.
+  cancelCodeHash: text("cancel_code_hash"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

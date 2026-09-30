@@ -9,13 +9,23 @@ const baseUrl = inject("baseUrl");
 
 // Astro checks form POSTs carry a same-origin Origin header (CSRF
 // protection); browsers send it automatically, a bare fetch doesn't.
-const post = (path: string, body: URLSearchParams) =>
+//
+// Every booking now carries a cancel code, and cancelling needs it. Probes
+// that aren't about the code itself get this one filled in for them; the
+// "cancel codes" block below sends its own, or none, on purpose.
+const CODE = "spec-code";
+const withCode = (body: URLSearchParams) => {
+  if (!body.has("cancelCode")) body.set("cancelCode", CODE);
+  return body;
+};
+const postRaw = (path: string, body: URLSearchParams) =>
   fetch(new URL(path, baseUrl), {
     method: "POST",
     headers: { origin: baseUrl },
     body,
     redirect: "manual",
   });
+const post = (path: string, body: URLSearchParams) => postRaw(path, withCode(body));
 
 const roomsPage = async (date: string) => {
   const res = await fetch(new URL(`/?date=${date}`, baseUrl));
@@ -303,5 +313,60 @@ describe("rejecting requests the form itself would never send", () => {
     );
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("error=date");
+  });
+});
+
+// The riff's own promise: a booking can only be cancelled by whoever booked
+// it, because only they know the code they chose. The board still shows
+// every booking to everyone, but never the code, and a wrong code (or none)
+// frees nothing.
+describe("cancel codes", () => {
+  const date = "2031-09-03";
+  const secret = `s3cret-${process.hrtime.bigint()}`;
+  let bookingId: number;
+
+  beforeAll(async () => {
+    const res = await post(
+      "/api/bookings",
+      new URLSearchParams({ date, roomId: "4", startTime: "10:00", endTime: "11:00", bookedBy: "code owner", cancelCode: secret }),
+    );
+    expect(res.headers.get("location")).not.toContain("error");
+    const match = (await roomsPage(date)).match(/\/api\/bookings\/(\d+)\/cancel/);
+    if (!match) throw new Error("couldn't find the booking's cancel form");
+    bookingId = Number(match[1]);
+  });
+
+  it("refuses a booking made without a code, or with one too short", async () => {
+    for (const cancelCode of [undefined, "abc"]) {
+      const body = new URLSearchParams({ date, roomId: "1", startTime: "13:00", endTime: "14:00", bookedBy: "no code" });
+      if (cancelCode !== undefined) body.set("cancelCode", cancelCode);
+      const res = await postRaw("/api/bookings", body);
+      expect(res.headers.get("location")).toContain("error=code");
+    }
+    expect(await roomsPage(date)).not.toContain("no code");
+  });
+
+  it("never puts the code on the page", async () => {
+    expect(await roomsPage(date)).not.toContain(secret);
+  });
+
+  it("keeps the booking when the code is wrong or missing, and says so on its row", async () => {
+    const wrong = await post(`/api/bookings/${bookingId}/cancel`, new URLSearchParams({ date, cancelCode: "not-it" }));
+    expect(wrong.status).toBe(303);
+    const location = wrong.headers.get("location") ?? "";
+    expect(location).toContain(`cancelError=${bookingId}`);
+
+    const missing = await postRaw(`/api/bookings/${bookingId}/cancel`, new URLSearchParams({ date }));
+    expect(missing.headers.get("location")).toContain(`cancelError=${bookingId}`);
+
+    const page = await fetch(new URL(location, baseUrl)).then((r) => r.text());
+    expect(page).toContain("code owner");
+    expect(page).toContain("Nothing was cancelled");
+  });
+
+  it("frees the slot with the right code", async () => {
+    const res = await post(`/api/bookings/${bookingId}/cancel`, new URLSearchParams({ date, cancelCode: secret }));
+    expect(res.headers.get("location")).not.toContain("cancelError");
+    expect(await roomsPage(date)).not.toContain("code owner");
   });
 });

@@ -1,10 +1,11 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { and, asc, between, eq, sql } from "drizzle-orm";
+import { and, asc, between, eq, getTableColumns, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { type Booking, type Room, bookings, rooms } from "./schema";
+import { codeMatches } from "./cancel-code";
+import { type Booking as BookingRow, type Room, bookings, rooms } from "./schema";
 
 // One SQLite file is the app's whole persistent state. In production
 // fly.toml points DATABASE_PATH at the machine's volume (/data), which is
@@ -43,7 +44,12 @@ for (const [index, name] of SEEDED_ROOMS.entries()) {
     .run();
 }
 
-export type { Booking, Room };
+// What the rest of the app gets to see of a booking: everything except the
+// cancel code's hash, which only cancelBooking and rebookBooking below read.
+export type Booking = Omit<BookingRow, "cancelCodeHash">;
+const { cancelCodeHash: _hash, ...visible } = getTableColumns(bookings);
+
+export type { Room };
 
 export class ConflictError extends Error {}
 export class ValidationError extends Error {}
@@ -53,7 +59,7 @@ export function listRooms(): Room[] {
 }
 
 export function listBookingsForDate(date: string): Booking[] {
-  return db.select().from(bookings).where(eq(bookings.date, date)).orderBy(bookings.startTime).all();
+  return db.select(visible).from(bookings).where(eq(bookings.date, date)).orderBy(bookings.startTime).all();
 }
 
 function overlaps(a: Booking | NewBooking, b: Booking): boolean {
@@ -66,6 +72,7 @@ interface NewBooking {
   startTime: string;
   endTime: string;
   bookedBy: string;
+  cancelCodeHash: string | null;
 }
 
 // Runs the whole check-then-insert as one call: better-sqlite3's calls are
@@ -77,24 +84,42 @@ export function addBooking(candidate: NewBooking): Booking {
     throw new ValidationError("end time must be after start time");
   }
   const sameRoomAndDay = db
-    .select()
+    .select(visible)
     .from(bookings)
     .where(and(eq(bookings.roomId, candidate.roomId), eq(bookings.date, candidate.date)))
     .all();
   if (sameRoomAndDay.some((existing) => overlaps(candidate, existing))) {
     throw new ConflictError("room already booked for part of this time");
   }
-  return db.insert(bookings).values(candidate).returning().get();
+  return db.insert(bookings).values(candidate).returning(visible).get();
 }
 
-/** Returns the deleted booking's own date, or null if no booking with that id existed. */
-export function cancelBooking(id: number): string | null {
-  const removed = db.delete(bookings).where(eq(bookings.id, id)).returning().all();
-  return removed[0]?.date ?? null;
+export type CancelResult = { ok: true; date: string } | { ok: false; reason: "gone" | "code" };
+
+/** Cancels a booking only if `code` matches the one it was booked with.
+ *  Check and delete run back to back with no await in between (the same
+ *  reasoning as addBooking), so a right code always wins and a wrong one
+ *  never deletes anything. Bookings made before codes existed have no hash
+ *  and cancel with any code, as they always could. */
+export function cancelBooking(id: number, code: string): CancelResult {
+  const row = db.select({ hash: bookings.cancelCodeHash }).from(bookings).where(eq(bookings.id, id)).get();
+  if (!row) return { ok: false, reason: "gone" };
+  if (row.hash && !codeMatches(code, row.hash)) return { ok: false, reason: "code" };
+  const removed = db.delete(bookings).where(eq(bookings.id, id)).returning(visible).all();
+  return removed[0] ? { ok: true, date: removed[0].date } : { ok: false, reason: "gone" };
 }
 
 export function getBooking(id: number): Booking | undefined {
-  return db.select().from(bookings).where(eq(bookings.id, id)).get();
+  return db.select(visible).from(bookings).where(eq(bookings.id, id)).get();
+}
+
+/** The same booking seven days on, carrying the original's cancel code hash
+ *  over so whoever can cancel this one can cancel the copy too. */
+export function rebookBooking(id: number, date: string): Booking | undefined {
+  const original = db.select().from(bookings).where(eq(bookings.id, id)).get();
+  if (!original) return undefined;
+  const { roomId, startTime, endTime, bookedBy, cancelCodeHash } = original;
+  return addBooking({ roomId, date, startTime, endTime, bookedBy, cancelCodeHash });
 }
 
 export type NamedBooking = Booking & { roomName: string };
@@ -104,7 +129,7 @@ export type NamedBooking = Booking & { roomName: string };
  *  ignoring case and surrounding spaces, the way people retype their own. */
 export function listBookingsByName(name: string, from: string, to: string): NamedBooking[] {
   return db
-    .select({ booking: bookings, roomName: rooms.name })
+    .select({ booking: visible, roomName: rooms.name })
     .from(bookings)
     .innerJoin(rooms, eq(rooms.id, bookings.roomId))
     .where(and(sql`lower(trim(${bookings.bookedBy})) = lower(trim(${name}))`, between(bookings.date, from, to)))

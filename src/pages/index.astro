@@ -1,5 +1,6 @@
 ---
 import { canberraParts, canberraWallTimeToEpochMs, nextReloadTargetEpochMs, shiftDate } from "../lib/clock";
+import { CODE_MAX, CODE_MIN } from "../lib/cancel-code";
 import { listBookingsForDate, listRooms } from "../lib/db";
 import { roomForName } from "../lib/floorplan";
 import { DURATIONS, lengthLabel } from "../lib/timeslots";
@@ -15,12 +16,17 @@ const requestedDate = Astro.url.searchParams.get("date");
 const date = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : today;
 const isToday = date === today;
 const error = Astro.url.searchParams.get("error");
+// The booking a wrong cancel code was just tried on, if any (see
+// src/pages/api/bookings/[id]/cancel.ts): its row says so, right where the
+// code was typed.
+const cancelError = Number(Astro.url.searchParams.get("cancelError"));
 
 const errorMessages: Record<string, string> = {
   conflict: "That room is already booked for part of this time — pick another slot.",
   date: "That's not a date the board understands — pick one from the calendar.",
   invalid: "The end time has to be after the start time.",
   name: "Enter your name so the room knows who's got it.",
+  code: `Choose a UID of ${CODE_MIN} to ${CODE_MAX} characters. You'll need it to cancel this booking.`,
   room: "Pick a room.",
 };
 
@@ -233,6 +239,23 @@ const nextBoundaryTarget = isToday
           <input id="bookedBy" name="bookedBy" required maxlength="80" autocomplete="name" />
         </div>
 
+        <div class="field">
+          <label for="cancelCode">UID</label>
+          <input
+            id="cancelCode"
+            name="cancelCode"
+            type="password"
+            required
+            minlength={CODE_MIN}
+            maxlength={CODE_MAX}
+            autocomplete="new-password"
+            aria-describedby="code-hint"
+          />
+          <p class="field__hint" id="code-hint">
+            A private ID only you know. Keep it: nobody, you included, can cancel this booking without it.
+          </p>
+        </div>
+
         <fieldset class="when">
           <legend>When</legend>
           <div class="timeline" hidden>
@@ -278,15 +301,52 @@ const nextBoundaryTarget = isToday
             <ul>
               {bookings.length === 0 && <li class="empty">Free all day</li>}
               {bookings.map((booking) => (
-                <li class={booking.active ? "active" : undefined}>
+                <li id={`slot-${booking.id}`} class={booking.active ? "active" : undefined}>
                   <span class="time">
                     {booking.startTime}–{booking.endTime}
                   </span>
                   <span class="who">{booking.bookedBy}</span>
-                  <form method="post" action={`/api/bookings/${booking.id}/cancel`}>
-                    <input type="hidden" name="date" value={date} />
-                    <button type="submit">Cancel</button>
-                  </form>
+                  <button type="button" popovertarget={`cancel-${booking.id}`}>Cancel</button>
+                  {/* Cancel asks for the booking's UID in a card (a native
+                      popover, so it works with no script); Enter sends it. */}
+                  <div
+                    popover
+                    id={`cancel-${booking.id}`}
+                    class="cancel-card"
+                    role="dialog"
+                    aria-labelledby={`cancel-${booking.id}-title`}
+                  >
+                    <form method="post" action={`/api/bookings/${booking.id}/cancel`}>
+                      <h3 id={`cancel-${booking.id}-title`}>Cancel this booking?</h3>
+                      <p class="cancel-card__what">
+                        {room.name}, {booking.startTime} to {booking.endTime}
+                      </p>
+                      <input type="hidden" name="date" value={date} />
+                      <label for={`uid-${booking.id}`}>Enter the UID it was booked with</label>
+                      <input
+                        id={`uid-${booking.id}`}
+                        type="password"
+                        name="cancelCode"
+                        required
+                        maxlength={CODE_MAX}
+                        autocomplete="off"
+                        autofocus
+                        aria-invalid={cancelError === booking.id ? "true" : undefined}
+                        aria-describedby={cancelError === booking.id ? `uid-${booking.id}-error` : undefined}
+                      />
+                      {cancelError === booking.id && (
+                        <p class="cancel-error" id={`uid-${booking.id}-error`} role="alert">
+                          That UID doesn't match this booking. Nothing was cancelled.
+                        </p>
+                      )}
+                      <div class="cancel-card__actions">
+                        <button type="submit" class="cancel-card__confirm">Cancel booking</button>
+                        <button type="button" popovertarget={`cancel-${booking.id}`} popovertargetaction="hide">
+                          Keep it
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -295,6 +355,15 @@ const nextBoundaryTarget = isToday
       </div>
       <MyWeek />
     </main>
+    <script is:inline define:vars={{ cancelError }}>
+      // Back from a wrong UID: reopen the card it was typed into (the board's,
+      // or My week's when that's where it came from), so the person can try
+      // again where they were.
+      if (cancelError) {
+        const card = location.hash === "#my-week" ? `booking-${cancelError}` : `cancel-${cancelError}`;
+        document.getElementById(card)?.showPopover?.();
+      }
+    </script>
     <script is:inline define:vars={{ date, nextBoundaryTarget }}>
       // The board's live half: any tab looking at this same date brings itself
       // up to date the moment a booking is made or cancelled anywhere, so two

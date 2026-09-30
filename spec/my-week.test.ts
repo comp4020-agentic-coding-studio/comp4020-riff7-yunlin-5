@@ -17,8 +17,10 @@ const post = (path: string, body: URLSearchParams, cookie = "") =>
     redirect: "manual",
   });
 
+// Every booking needs a cancel code; these probes all use the same one.
+const CODE = "week-code";
 const book = (who: string, date: string, startTime: string, endTime: string, roomId = "3") =>
-  post("/api/bookings", new URLSearchParams({ date, roomId, startTime, endTime, bookedBy: who }));
+  post("/api/bookings", new URLSearchParams({ date, roomId, startTime, endTime, bookedBy: who, cancelCode: CODE }));
 
 const cookieFrom = (res: Response) =>
   res.headers
@@ -97,12 +99,17 @@ describe("my week", () => {
     const doc = await myWeek(cookie);
     const form = doc.querySelector<HTMLFormElement>('.mw-card form[action$="/cancel"]');
     expect(form).toBeTruthy();
+    expect(form?.querySelector('input[name="cancelCode"][type="password"]')).toBeTruthy();
+    const action = form?.getAttribute("action") ?? "";
 
-    const res = await post(
-      form?.getAttribute("action") ?? "",
-      new URLSearchParams({ date: today, return: "week" }),
-      cookie,
-    );
+    // a wrong code keeps the booking and says so on the week
+    const wrong = await post(action, new URLSearchParams({ date: today, return: "week", cancelCode: "nope" }), cookie);
+    expect(wrong.headers.get("location")).toMatch(/^\/\?cancelError=\d+#my-week$/);
+    const refused = await myWeek(cookie, wrong.headers.get("location")?.replace(/^\/|#my-week$/g, "") ?? "");
+    expect(refused.querySelectorAll(".mw-slot")).toHaveLength(1);
+    expect(refused.querySelector("#my-week")?.textContent).toContain("Nothing was cancelled");
+
+    const res = await post(action, new URLSearchParams({ date: today, return: "week", cancelCode: CODE }), cookie);
     expect(res.headers.get("location")).toBe("/?cancelled=1#my-week");
     expect((await myWeek(cookie)).querySelectorAll(".mw-slot")).toHaveLength(0);
   });

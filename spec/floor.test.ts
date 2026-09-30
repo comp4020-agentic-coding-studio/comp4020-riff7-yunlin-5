@@ -34,7 +34,7 @@ describe("the floor", () => {
     const res = await fetch(new URL("/api/bookings", baseUrl), {
       method: "POST",
       headers: { origin: baseUrl },
-      body: new URLSearchParams({ date, roomId: "4", startTime: "00:00", endTime: "23:59", bookedBy: who }),
+      body: new URLSearchParams({ date, roomId: "4", startTime: "00:00", endTime: "23:59", bookedBy: who, cancelCode: "floor-code" }),
       redirect: "manual",
     });
     expect(res.status).toBe(303);

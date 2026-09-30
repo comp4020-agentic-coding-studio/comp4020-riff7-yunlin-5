@@ -161,6 +161,13 @@
   border-style: dashed;
 }
 
+.book-form .field__hint {
+  margin: 0.4rem 0 0;
+  font-family: var(--ui);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 /* ---- room cards (scripted; a plain <select> without JS) ----------------- */
 
 .room-picker__options {

@@ -10,18 +10,25 @@ export const POST: APIRoute = async ({ params, request, redirect }) => {
   const id = Number(params.id);
   const form = await request.formData();
   const date = String(form.get("date") ?? "");
+  const toWeek = form.get("return") === "week";
   if (Number.isInteger(id)) {
     // Broadcast the booking's own stored date, not whatever the client's
     // hidden form field claims — the redirect below still honours the
     // submitted date (it only decides which view *this* browser lands on),
     // but a crafted request with a mismatched date must not stop other
     // tabs on the real date from hearing about the cancellation.
-    const removedDate = cancelBooking(id);
-    if (removedDate) bus.emit("booking", { date: removedDate });
+    // Only the code the booking was made with frees it (src/lib/cancel-code.ts).
+    // A wrong code changes nothing and says so, on whichever view sent it.
+    const result = cancelBooking(id, String(form.get("cancelCode") ?? ""));
+    if (result.ok) bus.emit("booking", { date: result.date });
+    else if (result.reason === "code") {
+      if (toWeek) return redirect(`/?cancelError=${id}#my-week`, 303);
+      return redirect(`/?${new URLSearchParams({ date, cancelError: String(id) })}#slot-${id}`, 303);
+    }
   }
   // Cancelling from the My week calendar lands back on it; from anywhere
   // else, on the board for the submitted date. A fixed name, never a URL
   // taken from the form, so this can't be turned into an open redirect.
-  if (form.get("return") === "week") return redirect("/?cancelled=1#my-week", 303);
+  if (toWeek) return redirect("/?cancelled=1#my-week", 303);
   return redirect(`/?${new URLSearchParams({ date })}`, 303);
 };

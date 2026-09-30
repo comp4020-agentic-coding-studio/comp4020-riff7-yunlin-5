@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { hashCode, isValidCode } from "../../lib/cancel-code";
 import { ConflictError, ValidationError, addBooking, listRooms } from "../../lib/db";
 import { bus } from "../../lib/events";
 import { rememberName } from "../../lib/me";
@@ -27,6 +28,8 @@ export const POST: APIRoute = async ({ cookies, request, redirect }) => {
   const endTime = String(form.get("endTime") ?? "");
   const bookedBy = String(form.get("bookedBy") ?? "").trim().slice(0, 80);
   const roomId = Number(form.get("roomId"));
+  // Not trimmed: it's a secret, so it's checked exactly as typed.
+  const cancelCode = String(form.get("cancelCode") ?? "");
 
   // `#book` lands the browser back on the form it just sent, where the error
   // (or, with scripts on, the confirmation) is shown, even with JS off.
@@ -35,11 +38,12 @@ export const POST: APIRoute = async ({ cookies, request, redirect }) => {
 
   if (!Number.isInteger(roomId) || !listRooms().some((room) => room.id === roomId)) return back("room");
   if (!bookedBy) return back("name");
+  if (!isValidCode(cancelCode)) return back("code");
   if (!DATE_RE.test(date)) return back("date");
   if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) return back("invalid");
 
   try {
-    const booking = addBooking({ roomId, date, startTime, endTime, bookedBy });
+    const booking = addBooking({ roomId, date, startTime, endTime, bookedBy, cancelCodeHash: hashCode(cancelCode) });
     bus.emit("booking", { date: booking.date });
     // A successful booking is how the board learns whose week to show on
     // /my/ (see src/lib/me.ts).

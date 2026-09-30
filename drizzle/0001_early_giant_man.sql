@@ -1,0 +1,1 @@
+ALTER TABLE `bookings` ADD `cancel_code_hash` text;

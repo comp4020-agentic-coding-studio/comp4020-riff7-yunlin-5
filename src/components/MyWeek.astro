@@ -1,4 +1,5 @@
 ---
+import { CODE_MAX } from "../lib/cancel-code";
 import { canberraParts, nextReloadTargetEpochMs, shiftDate } from "../lib/clock";
 import { type NamedBooking, getBooking, listBookingsByName, listRooms } from "../lib/db";
 import { roomForName } from "../lib/floorplan";
@@ -87,6 +88,13 @@ if (rebookedId) {
     from && room
       ? `Couldn't rebook: ${code(room.name)} is already taken on ${longLabel(shiftDate(from.date, 7))} for part of ${from.startTime}–${from.endTime}. Nothing was booked.`
       : "Couldn't rebook: that slot is already taken next week. Nothing was booked.";
+} else if (params.get("cancelError")) {
+  const tried = getBooking(Number(params.get("cancelError")));
+  const room = tried && listRooms().find((r) => r.id === tried.roomId);
+  notice =
+    tried && room
+      ? `That UID doesn't match ${code(room.name)} on ${longLabel(tried.date)}, ${tried.startTime}–${tried.endTime}. Nothing was cancelled.`
+      : "That UID doesn't match that booking. Nothing was cancelled.";
 } else if (params.get("rebookError") === "gone") {
   notice = "That booking doesn't exist any more.";
 }
@@ -228,6 +236,18 @@ const nextBoundaryTarget = nextReloadTargetEpochMs(
                     <form method="post" action={`/api/bookings/${b.id}/cancel`}>
                       <input type="hidden" name="date" value={b.date} />
                       <input type="hidden" name="return" value="week" />
+                      <label class="mw-code-label" for={`mw-uid-${b.id}`}>
+                        To cancel, enter the UID it was booked with
+                      </label>
+                      <input
+                        id={`mw-uid-${b.id}`}
+                        class="mw-code"
+                        type="password"
+                        name="cancelCode"
+                        required
+                        maxlength={CODE_MAX}
+                        autocomplete="off"
+                      />
                       <button class="mw-btn mw-btn--quiet">Cancel booking</button>
                     </form>
                   )}

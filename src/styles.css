@@ -73,6 +73,7 @@ nav[aria-label="date"] {
 
 .room li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   padding: 0.3rem 0.5rem;
@@ -106,6 +107,80 @@ nav[aria-label="date"] {
 
 .room form {
   margin: 0;
+}
+
+/* Cancel opens a card asking for the booking's UID. A wrong one is marked in
+   ink (dashed), never the accent, which only ever means "happening now". */
+.cancel-card {
+  width: min(22rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  margin: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.4rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 12px 40px rgb(35 33 29 / 22%);
+}
+
+.cancel-card::backdrop {
+  background: rgb(35 33 29 / 34%);
+}
+
+.cancel-card form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.cancel-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.cancel-card__what {
+  margin: 0;
+  color: #6b6558;
+}
+
+.cancel-card label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.cancel-card input {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.2rem;
+  background: #fffdf8;
+  color: var(--ink);
+}
+
+.cancel-card input[aria-invalid="true"] {
+  border: 1px dashed var(--ink);
+}
+
+.cancel-error {
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.cancel-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.room .cancel-card button {
+  padding: 0.45rem 0.9rem;
+}
+
+.room .cancel-card__confirm {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 
 .room button {
