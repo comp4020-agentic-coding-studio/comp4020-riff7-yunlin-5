@@ -118,48 +118,6 @@ nav[aria-label="date"] {
   cursor: pointer;
 }
 
-.book-form {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  align-items: end;
-  border-top: 1px solid var(--line);
-  padding-top: 1.25rem;
-}
-
-.book-form h2 {
-  grid-column: 1 / -1;
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.book-form label {
-  display: block;
-  font-size: 0.85rem;
-  margin-bottom: 0.2rem;
-}
-
-.book-form input,
-.book-form select {
-  width: 100%;
-  padding: 0.4rem 0.5rem;
-  font: inherit;
-  border: 1px solid var(--line);
-  border-radius: 0.2rem;
-  background: white;
-}
-
-.book-form button {
-  grid-column: 1 / -1;
-  font: inherit;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--ink);
-  border-radius: 0.2rem;
-  background: var(--ink);
-  color: var(--paper);
-  cursor: pointer;
-}
-
 .floor3d {
   margin: 1.5rem 0 0;
 }
