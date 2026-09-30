@@ -227,6 +227,63 @@ nav[aria-label="date"] {
   white-space: nowrap;
 }
 
+/* Room details stay beside the map label, within the stage on small screens. */
+.floor3d-label--room {
+  font-family: inherit;
+  line-height: inherit;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.floor3d-info {
+  position: absolute;
+  z-index: 10;
+  box-sizing: border-box;
+  width: min(15rem, calc(100% - 1rem));
+  max-height: calc(100% - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--ink);
+  border-radius: 0.4rem;
+  background: var(--paper);
+  box-shadow: 0 6px 20px #23211d26;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.floor3d-info h3 {
+  margin: 0 2rem 0 0;
+  font-size: 1.1rem;
+}
+
+.floor3d-info p { margin: 0.25rem 0; }
+.floor3d-info__date { color: #6b6558; }
+.floor3d-info__status { font-weight: bold; }
+.floor3d-info ul { list-style: none; margin: 0.6rem 0; padding: 0; }
+.floor3d-info li { overflow-wrap: anywhere; margin: 0.3rem 0; }
+.floor3d-info a { color: var(--ink); text-underline-offset: 0.2em; }
+
+@media (max-width: 600px) {
+  .floor3d-info { width: min(13rem, calc(100% - 1rem)); }
+}
+
+.floor3d-info__close {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
 .floor3d-label--quiet {
   font-size: 0.7rem;
   color: #6b6558;

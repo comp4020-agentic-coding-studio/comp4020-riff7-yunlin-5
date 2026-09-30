@@ -113,8 +113,9 @@ function outlined(mesh: THREE.Mesh, colour: number): THREE.Group {
   return group;
 }
 
-function label(text: string, className: string, rect: Rect, height: number): CSS2DObject {
-  const el = document.createElement("div");
+function label(text: string, className: string, rect: Rect, height: number, button = false): CSS2DObject {
+  const el = document.createElement(button ? "button" : "div");
+  if (el instanceof HTMLButtonElement) el.type = "button";
   el.className = className;
   el.textContent = text;
   const [xa, za] = toWorld(rect.x0, rect.y0);
@@ -209,7 +210,7 @@ function mount(figure: HTMLElement): void {
     const mesh = box(room.rect, WALL, new THREE.MeshLambertMaterial({ color: 0xffffff }));
     const group = outlined(mesh, INK);
     scene.add(group);
-    const tag = label(room.label, "floor3d-label", room.rect, WALL);
+    const tag = label(room.label, "floor3d-label floor3d-label--room", room.rect, WALL, true);
     scene.add(tag);
     if (!onBoard) continue;
     mesh.userData.roomId = onBoard.id;
@@ -242,6 +243,76 @@ function mount(figure: HTMLElement): void {
     const at = covering(room.bookings, viewTime);
     return at ? { look: "booked", booking: at } : { look: "free", booking: null };
   };
+  // One ordinary HTML card follows the selected room's existing screen label.
+  // Selection stays on the map; only the explicit booking link leaves it.
+  const info = document.createElement("section");
+  info.className = "floor3d-info";
+  info.id = "floor3d-info";
+  info.hidden = true;
+  info.tabIndex = -1;
+  info.setAttribute("aria-labelledby", "floor3d-info-title");
+  info.innerHTML = `
+    <button type="button" class="floor3d-info__close" aria-label="Close room details">×</button>
+    <h3 id="floor3d-info-title"></h3>
+    <p class="floor3d-info__date"></p>
+    <p class="floor3d-info__status" role="status"></p>
+    <ul aria-label="Bookings for this day"></ul>
+    <a href="#book">Book this room</a>`;
+  stage.append(info);
+  let detailRoom: FloorRoom | null = null;
+  const renderInfo = () => {
+    if (!detailRoom) return;
+    info.querySelector("h3")!.textContent = `Room ${detailRoom.code}`;
+    info.querySelector(".floor3d-info__date")!.textContent = date;
+    const time = viewTime ?? (isToday ? canberraParts(new Date()).time : null);
+    const current = time ? covering(detailRoom.bookings, time) : null;
+    info.querySelector(".floor3d-info__status")!.textContent = time
+      ? current ? `Booked at ${time} · until ${current.endTime}` : `Free at ${time}`
+      : "Bookings for this day";
+    const rows = detailRoom.bookings.map((booking) => {
+      const item = document.createElement("li");
+      item.textContent = `${booking.startTime}–${booking.endTime} · ${booking.bookedBy}`;
+      return item;
+    });
+    if (!rows.length) {
+      const empty = document.createElement("li");
+      empty.textContent = "No bookings this day.";
+      rows.push(empty);
+    }
+    info.querySelector("ul")!.replaceChildren(...rows);
+  };
+  const positionInfo = () => {
+    if (info.hidden || !detailRoom) return;
+    const anchor = detailRoom.tag.getBoundingClientRect();
+    const bounds = stage.getBoundingClientRect();
+    const x = anchor.left - bounds.left;
+    const y = anchor.top - bounds.top;
+    const width = info.offsetWidth;
+    const height = info.offsetHeight;
+    const left = x > stage.clientWidth - x - anchor.width ? x - width - 12 : x + anchor.width + 12;
+    info.style.left = `${Math.max(8, Math.min(left, stage.clientWidth - width - 8))}px`;
+    info.style.top = `${Math.max(8, Math.min(y - height / 2, stage.clientHeight - height - 8))}px`;
+    info.style.visibility = anchor.width && x + anchor.width >= 0 && x <= stage.clientWidth
+      && y + anchor.height >= 0 && y <= stage.clientHeight ? "visible" : "hidden";
+  };
+  const closeInfo = (restoreFocus = false) => {
+    if (restoreFocus) detailRoom?.tag.focus({ preventScroll: true });
+    detailRoom = null;
+    info.hidden = true;
+    for (const room of rooms) room.tag.setAttribute("aria-expanded", "false");
+  };
+  info.querySelector("button")!.addEventListener("click", () => closeInfo(true));
+  stage.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !info.hidden) {
+      event.stopPropagation();
+      closeInfo(true);
+    }
+  });
+  info.querySelector("a")!.addEventListener("click", () => {
+    closeInfo();
+    document.querySelector<HTMLInputElement>("#bookedBy")?.focus({ preventScroll: true });
+  });
+
   const colours: Record<RoomLook, number> = { now: SEAL, booked: BOOKED, free: 0xffffff };
   const changeListeners: (() => void)[] = [];
   const refresh = () => {
@@ -252,6 +323,7 @@ function mount(figure: HTMLElement): void {
       room.tag.classList.toggle("floor3d-label--now", look === "now");
       room.tag.classList.toggle("floor3d-label--booked", look === "booked");
     }
+    renderInfo();
     for (const listener of changeListeners) listener();
   };
   refresh();
@@ -276,6 +348,11 @@ function mount(figure: HTMLElement): void {
       r.tag.classList.toggle("floor3d-label--selected", r === chosen);
       if (reducedMotion.matches) r.group.scale.y = r.lift;
     }
+    if (detailRoom && chosen) {
+      detailRoom = chosen;
+      renderInfo();
+    }
+    for (const r of rooms) r.tag.setAttribute("aria-expanded", String(r === detailRoom));
     for (const listener of selectListeners) listener(chosen);
   };
   select?.addEventListener("change", showSelected);
@@ -345,6 +422,22 @@ function mount(figure: HTMLElement): void {
 
   // A click (not the end of a drag) on a bookable room picks it in the
   // booking form, so the model is a way into booking, not just a picture.
+  const openInfo = (room: FloorRoom) => {
+    detailRoom = room;
+    if (select) {
+      select.value = String(room.id);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    renderInfo();
+    info.hidden = false;
+    positionInfo();
+    info.focus({ preventScroll: true });
+  };
+  for (const room of rooms) {
+    room.tag.setAttribute("aria-label", `View room ${room.code}`);
+    room.tag.setAttribute("aria-controls", info.id);
+    room.tag.addEventListener("click", () => openInfo(room));
+  }
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let downAt: [number, number] | null = null;
@@ -370,14 +463,9 @@ function mount(figure: HTMLElement): void {
   renderer.domElement.addEventListener("pointerup", (e) => {
     if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
     const hit = pick(e);
-    if (!hit) return;
-    if (select) {
-      select.value = String(hit.userData.roomId);
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    const form = document.querySelector<HTMLElement>(".book-form");
-    form?.scrollIntoView({ behavior: "smooth", block: "center" });
-    document.querySelector<HTMLInputElement>("#bookedBy")?.focus({ preventScroll: true });
+    if (!hit) return closeInfo();
+    const room = rooms.find((r) => r.id === hit.userData.roomId);
+    if (room) openInfo(room);
   });
 
   const frameListeners: ((seconds: number) => void)[] = [];
@@ -389,6 +477,7 @@ function mount(figure: HTMLElement): void {
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
+    positionInfo();
   });
 
   resolveFloor({

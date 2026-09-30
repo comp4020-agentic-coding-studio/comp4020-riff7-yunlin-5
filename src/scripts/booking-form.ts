@@ -379,8 +379,7 @@ function enhance(form: HTMLFormElement) {
     });
   }
   select.addEventListener("change", () => syncCards(!fromCards));
-  // The 3D model focuses the name field right after picking a room; catch a
-  // pick that set the select's value without announcing it.
+  // When entering the form, catch a room selection made without a change event.
   nameInput.addEventListener("focus", () => {
     if (radios.find((r) => r.checked)?.value !== select.value) syncCards(true);
   });
