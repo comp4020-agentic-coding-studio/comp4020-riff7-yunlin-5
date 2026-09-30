@@ -38,8 +38,8 @@ export interface FloorRoom {
   bookings: RoomBooking[];
 }
 
-/** How a room looks: in use right now (the one red thing), booked at the
- *  time being viewed (ink), or free. */
+/** How a room looks: in use right now (red), booked at the time being
+ *  viewed (ink), or free (green). */
 export type RoomLook = "now" | "booked" | "free";
 
 export interface Floor {
@@ -82,6 +82,7 @@ const INK = 0x23211d;
 const LINE = 0xd8d2c4;
 const SEAL = 0x8a3324;
 const BOOKED = 0x4a4640;
+const FREE = 0x4f9a64;
 
 const SLAB = 0.4;
 const WALL = 2.8;
@@ -313,15 +314,29 @@ function mount(figure: HTMLElement): void {
     document.querySelector<HTMLInputElement>("#bookedBy")?.focus({ preventScroll: true });
   });
 
-  const colours: Record<RoomLook, number> = { now: SEAL, booked: BOOKED, free: 0xffffff };
+  // A taken room says when it frees up rather than who has it: the end of the
+  // booking it's in, carried on through any booking that starts right then.
+  const freesAt = (room: FloorRoom, booking: RoomBooking) => {
+    let end = booking.endTime;
+    for (let next = covering(room.bookings, end); next; next = covering(room.bookings, end)) end = next.endTime;
+    return end >= "23:59" ? "busy rest of day" : `free at ${end}`;
+  };
+  const colours: Record<RoomLook, number> = { now: SEAL, booked: BOOKED, free: FREE };
   const changeListeners: (() => void)[] = [];
   const refresh = () => {
+    // Green only means "free" when there's a time to be free at: today, or a
+    // chosen view time. Another day with no time chosen stays plain.
+    const hasTime = viewTime !== null || isToday;
     for (const room of rooms) {
       const { look, booking } = lookOf(room);
-      (room.mesh.material as THREE.MeshLambertMaterial).color.setHex(colours[look]);
-      room.tag.textContent = booking ? `${room.code} · ${booking.bookedBy}` : room.code;
+      const free = look === "free" && hasTime;
+      (room.mesh.material as THREE.MeshLambertMaterial).color.setHex(
+        look === "free" && !hasTime ? 0xffffff : colours[look],
+      );
+      room.tag.textContent = booking ? `${room.code} · ${freesAt(room, booking)}` : free ? `${room.code} · free` : room.code;
       room.tag.classList.toggle("floor3d-label--now", look === "now");
       room.tag.classList.toggle("floor3d-label--booked", look === "booked");
+      room.tag.classList.toggle("floor3d-label--free", free);
     }
     renderInfo();
     for (const listener of changeListeners) listener();

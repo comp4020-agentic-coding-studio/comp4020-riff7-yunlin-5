@@ -310,6 +310,12 @@ nav[aria-label="date"] {
   color: var(--paper);
 }
 
+.floor3d-label--free {
+  background: #276b43;
+  border-color: #276b43;
+  color: var(--paper);
+}
+
 .floor3d figcaption {
   font-size: 0.9rem;
   color: #6b6558;
