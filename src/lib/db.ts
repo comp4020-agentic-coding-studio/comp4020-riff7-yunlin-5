@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import Database from "better-sqlite3";
-import { and, eq } from "drizzle-orm";
+import { and, asc, between, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { type Booking, type Room, bookings, rooms } from "./schema";
@@ -91,4 +91,24 @@ export function addBooking(candidate: NewBooking): Booking {
 export function cancelBooking(id: number): string | null {
   const removed = db.delete(bookings).where(eq(bookings.id, id)).returning().all();
   return removed[0]?.date ?? null;
+}
+
+export function getBooking(id: number): Booking | undefined {
+  return db.select().from(bookings).where(eq(bookings.id, id)).get();
+}
+
+export type NamedBooking = Booking & { roomName: string };
+
+/** Everything booked under one name between two dates (inclusive), with its
+ *  room's name. There's no login here, so a name is the only "who": matched
+ *  ignoring case and surrounding spaces, the way people retype their own. */
+export function listBookingsByName(name: string, from: string, to: string): NamedBooking[] {
+  return db
+    .select({ booking: bookings, roomName: rooms.name })
+    .from(bookings)
+    .innerJoin(rooms, eq(rooms.id, bookings.roomId))
+    .where(and(sql`lower(trim(${bookings.bookedBy})) = lower(trim(${name}))`, between(bookings.date, from, to)))
+    .orderBy(asc(bookings.date), asc(bookings.startTime))
+    .all()
+    .map(({ booking, roomName }) => ({ ...booking, roomName }));
 }
