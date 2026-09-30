@@ -1,0 +1,37 @@
+/* Directions to the room (src/scripts/floor3d-route.ts). Ink and muted ink
+   only: the red means "happening now" and nothing else. */
+
+.floor3d-route {
+  margin: 0.6rem 0 0;
+  padding: 0.35rem 0 0.35rem 0.75rem;
+  border-left: 2px dashed var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.floor3d-route__title {
+  display: block;
+  font-style: italic;
+  color: #6b6558;
+  margin-bottom: 0.15rem;
+}
+
+.floor3d-route__way {
+  display: block;
+}
+
+.floor3d-route__way + .floor3d-route__way {
+  margin-top: 0.25rem;
+}
+
+.floor3d-route-label {
+  font-size: 0.72rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px dashed var(--ink);
+  border-radius: 0.2rem;
+  padding: 0 0.3rem;
+  white-space: nowrap;
+}
