@@ -159,3 +159,55 @@ nav[aria-label="date"] {
   color: var(--paper);
   cursor: pointer;
 }
+
+.floor3d {
+  margin: 1.5rem 0 0;
+}
+
+.floor3d-stage {
+  position: relative;
+  height: min(26rem, 70vw);
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  overflow: hidden;
+  touch-action: none;
+  background: #ebe6da;
+}
+
+.floor3d-stage canvas {
+  display: block;
+}
+
+.floor3d-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.floor3d-label {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 0.2rem;
+  padding: 0 0.3rem;
+  white-space: nowrap;
+}
+
+.floor3d-label--quiet {
+  font-size: 0.7rem;
+  color: #6b6558;
+  border-color: var(--line);
+}
+
+.floor3d-label--now {
+  background: var(--seal);
+  border-color: var(--seal);
+  color: var(--paper);
+}
+
+.floor3d figcaption {
+  font-size: 0.9rem;
+  color: #6b6558;
+  margin-top: 0.4rem;
+}

@@ -1,6 +1,7 @@
 ---
 import { canberraParts, canberraWallTimeToEpochMs, nextReloadTargetEpochMs, shiftDate } from "../lib/clock";
 import { listBookingsForDate, listRooms } from "../lib/db";
+import { roomForName } from "../lib/floorplan";
 import "../styles.css";
 
 // All times on this board are Canberra wall-clock text (see src/lib/schema.ts)
@@ -33,6 +34,17 @@ const roomsWithBookings = rooms.map((room) => ({
     .filter((b) => b.roomId === room.id)
     .map((b) => ({ ...b, active: isNowWithin(b.startTime, b.endTime) })),
 }));
+
+// The same answer, placed on the floor: every board room that has a room on
+// Chifley Level 3's plan, with whether (and by whom) it's in use right now.
+// src/scripts/floor3d.ts draws it; the caption says it in words.
+const onFloor = roomsWithBookings.flatMap(({ room, bookings }) => {
+  const place = roomForName(room.name);
+  if (!place) return [];
+  const now = bookings.find((b) => b.active);
+  return [{ id: room.id, code: place.code, active: Boolean(now), who: now?.bookedBy ?? null }];
+});
+const inUseNow = onFloor.filter((r) => r.active).map((r) => r.code);
 
 // Passed to the client script below so a tab left open across a booking's
 // start/end minute — or across midnight, with no bookings left to wait for
@@ -91,6 +103,19 @@ const nextBoundaryTarget = isToday
           {errorMessages[error] ?? "Something went wrong — try again."}
         </p>
       )}
+
+      <figure class="floor3d" data-rooms={JSON.stringify(onFloor)}>
+        <div class="floor3d-stage"></div>
+        <figcaption>
+          Chifley Library, Level 3{isToday ? "" : ` on ${date}`}.{" "}
+          {!isToday
+            ? "Rooms only light up for what's happening today."
+            : inUseNow.length === 0
+              ? "No group study room is in use right now."
+              : `In use right now: ${inUseNow.join(", ")}.`}{" "}
+          Drag to turn the floor; click a room to book it.
+        </figcaption>
+      </figure>
 
       <div class="rooms">
         {roomsWithBookings.map(({ room, bookings }) => (
@@ -184,6 +209,9 @@ const nextBoundaryTarget = isToday
       if (nextBoundaryTarget !== null) {
         setTimeout(() => location.reload(), Math.max(0, nextBoundaryTarget - Date.now()) + 5_000);
       }
+    </script>
+    <script>
+      import "../scripts/floor3d";
     </script>
   </body>
 </html>
