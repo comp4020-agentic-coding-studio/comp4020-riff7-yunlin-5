@@ -1,21 +1,87 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
+import { canberraParts } from "../lib/clock";
 import { CORE, GROUP_STUDY, OTHER_ROOMS, OUTLINE, type Rect, STACKS, VOIDS } from "../lib/floorplan";
 
+// The core of the floor model. It draws Chifley Level 3 and its four
+// bookable rooms and owns the one question every feature asks of a room:
+// what does it look like right now? Features (src/scripts/floor3d-*.ts)
+// don't draw rooms themselves; they get the Floor from `floorReady` and use
+// its API: add to the scene, listen for selection and frames, hand it fresh
+// bookings, or move the time it shows.
+
+export interface RoomBooking {
+  startTime: string;
+  endTime: string;
+  bookedBy: string;
+}
+
 // The board's rooms as index.astro renders them, carried on the figure's
-// data-rooms attribute: the same "happening now" answer the list shows, so
-// the model and the list can never disagree.
+// data-rooms attribute: the same bookings the list shows, so the model and
+// the list can never disagree.
 interface BoardRoom {
   id: number;
   code: string;
   active: boolean;
   who: string | null;
+  bookings: RoomBooking[];
 }
+
+export interface FloorRoom {
+  id: number;
+  code: string;
+  rect: Rect;
+  mesh: THREE.Mesh;
+  group: THREE.Group;
+  tag: HTMLElement;
+  bookings: RoomBooking[];
+}
+
+/** How a room looks: in use right now (the one red thing), booked at the
+ *  time being viewed (ink), or free. */
+export type RoomLook = "now" | "booked" | "free";
+
+export interface Floor {
+  figure: HTMLElement;
+  stage: HTMLElement;
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  controls: OrbitControls;
+  renderer: THREE.WebGLRenderer;
+  /** The date the board is showing, and whether that's today in Canberra. */
+  date: string;
+  isToday: boolean;
+  rooms: FloorRoom[];
+  /** Plan metres (src/lib/floorplan.ts) to world x/z; y is up. */
+  toWorld: (x: number, y: number) => [number, number];
+  /** World y of the floor's top surface, and a room's wall height. */
+  floorY: number;
+  wallHeight: number;
+  reducedMotion: MediaQueryList;
+  selected(): FloorRoom | null;
+  onSelect(listener: (room: FloorRoom | null) => void): void;
+  onFrame(listener: (seconds: number) => void): void;
+  /** Called after any room's look is worked out again. */
+  onChange(listener: () => void): void;
+  /** Replace the bookings behind the model, by room id (live updates). */
+  setBookings(byRoom: Record<number, RoomBooking[]>): void;
+  /** Show the floor at a time of this date ("HH:MM"), or null for live. */
+  setViewTime(time: string | null): void;
+  viewTime(): string | null;
+  lookOf(room: FloorRoom): { look: RoomLook; booking: RoomBooking | null };
+}
+
+let resolveFloor: (floor: Floor) => void;
+/** Resolves once the model is mounted; never resolves without WebGL. */
+export const floorReady = new Promise<Floor>((resolve) => {
+  resolveFloor = resolve;
+});
 
 const INK = 0x23211d;
 const LINE = 0xd8d2c4;
 const SEAL = 0x8a3324;
+const BOOKED = 0x4a4640;
 
 const SLAB = 0.4;
 const WALL = 2.8;
@@ -97,6 +163,7 @@ function mount(figure: HTMLElement): void {
   const stage = figure.querySelector<HTMLElement>(".floor3d-stage");
   if (!stage) return;
   const board: BoardRoom[] = JSON.parse(figure.dataset.rooms ?? "[]");
+  const date = figure.dataset.date ?? "";
 
   let renderer: THREE.WebGLRenderer;
   try {
@@ -136,37 +203,80 @@ function mount(figure: HTMLElement): void {
   // The bookable rooms: the only things on the floor that can go red, and
   // only while a booking in them is happening right now.
   const pickable: THREE.Mesh[] = [];
-  const placed: { id: number; group: THREE.Group; tag: HTMLElement; lift: number }[] = [];
+  const rooms: (FloorRoom & { lift: number })[] = [];
   for (const room of GROUP_STUDY) {
     const onBoard = board.find((b) => b.code === room.code);
-    const active = onBoard?.active ?? false;
-    const material = new THREE.MeshLambertMaterial({ color: active ? SEAL : 0xffffff });
-    const mesh = box(room.rect, WALL, material);
-    if (onBoard) {
-      mesh.userData.roomId = onBoard.id;
-      pickable.push(mesh);
-    }
+    const mesh = box(room.rect, WALL, new THREE.MeshLambertMaterial({ color: 0xffffff }));
     const group = outlined(mesh, INK);
     scene.add(group);
-    const text = active && onBoard?.who ? `${room.label} · ${onBoard.who}` : room.label;
-    const tag = label(text, `floor3d-label${active ? " floor3d-label--now" : ""}`, room.rect, WALL);
+    const tag = label(room.label, "floor3d-label", room.rect, WALL);
     scene.add(tag);
-    if (onBoard) placed.push({ id: onBoard.id, group, tag: tag.element, lift: 1 });
+    if (!onBoard) continue;
+    mesh.userData.roomId = onBoard.id;
+    pickable.push(mesh);
+    rooms.push({
+      id: onBoard.id,
+      code: room.code,
+      rect: room.rect,
+      mesh,
+      group,
+      tag: tag.element,
+      bookings: onBoard.bookings ?? [],
+      lift: 1,
+    });
   }
 
-  // The room chosen in the booking form stands a little taller and takes an
-  // ink label: selection is a shape and ink, never the red, which stays
+  // What each room looks like is decided here and only here. Live, a room is
+  // red while a booking in it is happening now (today only). At a chosen
+  // view time it's ink if booked then; red stays out of it, because red
+  // means "now" and a view time isn't now.
+  const isToday = date === canberraParts(new Date()).date;
+  let viewTime: string | null = null;
+  const covering = (bookings: RoomBooking[], time: string) =>
+    bookings.find((b) => b.startTime <= time && time < b.endTime) ?? null;
+  const lookOf = (room: FloorRoom): { look: RoomLook; booking: RoomBooking | null } => {
+    if (viewTime === null) {
+      const now = isToday ? covering(room.bookings, canberraParts(new Date()).time) : null;
+      return now ? { look: "now", booking: now } : { look: "free", booking: null };
+    }
+    const at = covering(room.bookings, viewTime);
+    return at ? { look: "booked", booking: at } : { look: "free", booking: null };
+  };
+  const colours: Record<RoomLook, number> = { now: SEAL, booked: BOOKED, free: 0xffffff };
+  const changeListeners: (() => void)[] = [];
+  const refresh = () => {
+    for (const room of rooms) {
+      const { look, booking } = lookOf(room);
+      (room.mesh.material as THREE.MeshLambertMaterial).color.setHex(colours[look]);
+      room.tag.textContent = booking ? `${room.code} · ${booking.bookedBy}` : room.code;
+      room.tag.classList.toggle("floor3d-label--now", look === "now");
+      room.tag.classList.toggle("floor3d-label--booked", look === "booked");
+    }
+    for (const listener of changeListeners) listener();
+  };
+  refresh();
+  // Live, "now" moves on its own: look again every so often, so a room goes
+  // red (and stops) on the minute without waiting for a reload.
+  setInterval(() => {
+    if (viewTime === null) refresh();
+  }, 20_000);
+
+  // The room chosen in the booking form stands a little taller and takes a
+  // ringed label: selection is a shape and ink, never the red, which stays
   // reserved for "happening now". #roomId is the one source of truth, and
   // the form and the model both speak to each other through its change event.
   const select = document.querySelector<HTMLSelectElement>("#roomId");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const selectListeners: ((room: FloorRoom | null) => void)[] = [];
+  const selected = () => rooms.find((r) => r.id === Number(select?.value)) ?? null;
   const showSelected = () => {
-    const chosen = Number(select?.value);
-    for (const p of placed) {
-      p.lift = p.id === chosen ? 1.4 : 1;
-      p.tag.classList.toggle("floor3d-label--selected", p.id === chosen);
-      if (reducedMotion.matches) p.group.scale.y = p.lift;
+    const chosen = selected();
+    for (const r of rooms) {
+      r.lift = r === chosen ? 1.4 : 1;
+      r.tag.classList.toggle("floor3d-label--selected", r === chosen);
+      if (reducedMotion.matches) r.group.scale.y = r.lift;
     }
+    for (const listener of selectListeners) listener(chosen);
   };
   select?.addEventListener("change", showSelected);
   showSelected();
@@ -270,11 +380,52 @@ function mount(figure: HTMLElement): void {
     document.querySelector<HTMLInputElement>("#bookedBy")?.focus({ preventScroll: true });
   });
 
+  const frameListeners: ((seconds: number) => void)[] = [];
+  const clock = new THREE.Clock();
   renderer.setAnimationLoop(() => {
-    for (const p of placed) p.group.scale.y += (p.lift - p.group.scale.y) * 0.15;
+    const seconds = clock.getDelta();
+    for (const r of rooms) r.group.scale.y += (r.lift - r.group.scale.y) * 0.15;
+    for (const listener of frameListeners) listener(seconds);
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
+  });
+
+  resolveFloor({
+    figure,
+    stage,
+    scene,
+    camera,
+    controls,
+    renderer,
+    date,
+    isToday,
+    rooms,
+    toWorld,
+    floorY: SLAB,
+    wallHeight: WALL,
+    reducedMotion,
+    selected,
+    onSelect: (listener) => {
+      selectListeners.push(listener);
+      listener(selected());
+    },
+    onFrame: (listener) => {
+      frameListeners.push(listener);
+    },
+    onChange: (listener) => {
+      changeListeners.push(listener);
+    },
+    setBookings: (byRoom) => {
+      for (const r of rooms) r.bookings = byRoom[r.id] ?? [];
+      refresh();
+    },
+    setViewTime: (time) => {
+      viewTime = time;
+      refresh();
+    },
+    viewTime: () => viewTime,
+    lookOf,
   });
 }
 

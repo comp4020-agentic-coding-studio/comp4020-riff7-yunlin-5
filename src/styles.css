@@ -158,11 +158,18 @@ nav[aria-label="date"] {
   border-color: var(--line);
 }
 
-.floor3d-label--selected {
-  background: var(--ink);
-  border-color: var(--ink);
+.floor3d-label--booked {
+  background: #4a4640;
+  border-color: #4a4640;
   color: var(--paper);
+}
+
+/* Selection is a ring, so it reads over any of the three looks. */
+.floor3d-label--selected {
   font-weight: bold;
+  box-shadow:
+    0 0 0 2px var(--paper),
+    0 0 0 4px var(--ink);
 }
 
 .floor3d-label--now {

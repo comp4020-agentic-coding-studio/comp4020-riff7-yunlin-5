@@ -44,7 +44,15 @@ const onFloor = roomsWithBookings.flatMap(({ room, bookings }) => {
   const place = roomForName(room.name);
   if (!place) return [];
   const now = bookings.find((b) => b.active);
-  return [{ id: room.id, code: place.code, active: Boolean(now), who: now?.bookedBy ?? null }];
+  return [
+    {
+      id: room.id,
+      code: place.code,
+      active: Boolean(now),
+      who: now?.bookedBy ?? null,
+      bookings: bookings.map(({ startTime, endTime, bookedBy }) => ({ startTime, endTime, bookedBy })),
+    },
+  ];
 });
 const inUseNow = onFloor.filter((r) => r.active).map((r) => r.code);
 
@@ -139,8 +147,11 @@ const nextBoundaryTarget = isToday
         <a href={`/?date=${shiftDate(date, 1)}`}>{shiftDate(date, 1)} &rarr;</a>
       </nav>
 
-      <figure class="floor3d" data-rooms={JSON.stringify(onFloor)}>
+      <figure class="floor3d" data-rooms={JSON.stringify(onFloor)} data-date={date}>
         <div class="floor3d-stage"></div>
+        {/* Filled by src/scripts/floor3d-time.ts and floor3d-route.ts once the model mounts. */}
+        <div class="floor3d-time" hidden></div>
+        <p class="floor3d-route" aria-live="polite" hidden></p>
         <figcaption>
           Chifley Library, Level 3{isToday ? "" : ` on ${date}`}.{" "}
           {!isToday
@@ -314,6 +325,8 @@ const nextBoundaryTarget = isToday
     </script>
     <script>
       import "../scripts/floor3d";
+      import "../scripts/floor3d-route";
+      import "../scripts/floor3d-time";
     </script>
     <script>
       import "../scripts/booking-form";
