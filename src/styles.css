@@ -200,6 +200,13 @@ nav[aria-label="date"] {
   border-color: var(--line);
 }
 
+.floor3d-label--selected {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  font-weight: bold;
+}
+
 .floor3d-label--now {
   background: var(--seal);
   border-color: var(--seal);

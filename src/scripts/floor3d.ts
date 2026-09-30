@@ -136,6 +136,7 @@ function mount(figure: HTMLElement): void {
   // The bookable rooms: the only things on the floor that can go red, and
   // only while a booking in them is happening right now.
   const pickable: THREE.Mesh[] = [];
+  const placed: { id: number; group: THREE.Group; tag: HTMLElement; lift: number }[] = [];
   for (const room of GROUP_STUDY) {
     const onBoard = board.find((b) => b.code === room.code);
     const active = onBoard?.active ?? false;
@@ -145,10 +146,30 @@ function mount(figure: HTMLElement): void {
       mesh.userData.roomId = onBoard.id;
       pickable.push(mesh);
     }
-    scene.add(outlined(mesh, INK));
+    const group = outlined(mesh, INK);
+    scene.add(group);
     const text = active && onBoard?.who ? `${room.label} · ${onBoard.who}` : room.label;
-    scene.add(label(text, `floor3d-label${active ? " floor3d-label--now" : ""}`, room.rect, WALL));
+    const tag = label(text, `floor3d-label${active ? " floor3d-label--now" : ""}`, room.rect, WALL);
+    scene.add(tag);
+    if (onBoard) placed.push({ id: onBoard.id, group, tag: tag.element, lift: 1 });
   }
+
+  // The room chosen in the booking form stands a little taller and takes an
+  // ink label: selection is a shape and ink, never the red, which stays
+  // reserved for "happening now". #roomId is the one source of truth, and
+  // the form and the model both speak to each other through its change event.
+  const select = document.querySelector<HTMLSelectElement>("#roomId");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const showSelected = () => {
+    const chosen = Number(select?.value);
+    for (const p of placed) {
+      p.lift = p.id === chosen ? 1.4 : 1;
+      p.tag.classList.toggle("floor3d-label--selected", p.id === chosen);
+      if (reducedMotion.matches) p.group.scale.y = p.lift;
+    }
+  };
+  select?.addEventListener("change", showSelected);
+  showSelected();
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 500);
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -171,12 +192,24 @@ function mount(figure: HTMLElement): void {
   } catch {
     // storage unavailable: fall through to the default view
   }
-  if (!restored) {
-    // The whole floor in frame, nudged toward the group study rooms.
-    controls.target.set(gx * 0.25, 0, gz * 0.25);
-    camera.position.set(gx * 0.25, 95, 100);
-  }
-  controls.update();
+  // Until someone turns the view themselves, it frames what fits the stage:
+  // the whole floor on a wide one, and on a narrow (phone) one, where the
+  // whole 88-metre floor would shrink the rooms to specks, the group study
+  // rooms themselves.
+  const frameDefault = () => {
+    if (restored) return;
+    if (camera.aspect >= 1.3) {
+      controls.target.set(gx * 0.25, 0, gz * 0.25);
+      camera.position.set(gx * 0.25, 72, 74);
+    } else {
+      controls.target.set(gx - 4, 0, gz);
+      camera.position.set(gx - 4, 34, gz + 30);
+    }
+    controls.update();
+  };
+  controls.addEventListener("start", () => {
+    restored = true;
+  });
   controls.addEventListener("end", () => {
     try {
       sessionStorage.setItem(
@@ -195,6 +228,7 @@ function mount(figure: HTMLElement): void {
     labels.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    frameDefault();
   };
   new ResizeObserver(resize).observe(stage);
   resize();
@@ -210,6 +244,10 @@ function mount(figure: HTMLElement): void {
       ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
       -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
     );
+    // Picking can't lean on the render loop having run since the view last
+    // moved (a backgrounded tab pauses it), so bring the camera up to date.
+    controls.update();
+    camera.updateMatrixWorld();
     raycaster.setFromCamera(pointer, camera);
     return raycaster.intersectObjects(pickable, false)[0]?.object as THREE.Mesh | undefined;
   };
@@ -223,14 +261,17 @@ function mount(figure: HTMLElement): void {
     if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
     const hit = pick(e);
     if (!hit) return;
-    const select = document.querySelector<HTMLSelectElement>("#roomId");
-    if (select) select.value = String(hit.userData.roomId);
+    if (select) {
+      select.value = String(hit.userData.roomId);
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     const form = document.querySelector<HTMLElement>(".book-form");
     form?.scrollIntoView({ behavior: "smooth", block: "center" });
     document.querySelector<HTMLInputElement>("#bookedBy")?.focus({ preventScroll: true });
   });
 
   renderer.setAnimationLoop(() => {
+    for (const p of placed) p.group.scale.y += (p.lift - p.group.scale.y) * 0.15;
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
