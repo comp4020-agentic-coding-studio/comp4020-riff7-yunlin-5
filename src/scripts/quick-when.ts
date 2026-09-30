@@ -81,7 +81,14 @@ function fillForm(start: number) {
 
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   form.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  const next = nameInput.value ? form.querySelector<HTMLElement>(".book-form__submit") : nameInput;
+  // The first thing still missing: the name, then the private UID a booking
+  // needs (see src/lib/cancel-code.ts), then just the submit button.
+  const uidInput = form.querySelector<HTMLInputElement>("#cancelCode");
+  const next = !nameInput.value
+    ? nameInput
+    : uidInput && !uidInput.value
+      ? uidInput
+      : form.querySelector<HTMLElement>(".book-form__submit");
   next?.focus({ preventScroll: true });
 }
 
