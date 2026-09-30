@@ -274,16 +274,13 @@ const quickOptions = QUICK_OPTIONS.map(({ when, label }) => {
           <input
             id="cancelCode"
             name="cancelCode"
-            type="password"
+            type="text"
             required
             minlength={CODE_MIN}
             maxlength={CODE_MAX}
-            autocomplete="new-password"
-            aria-describedby="code-hint"
+            autocomplete="off"
+            spellcheck="false"
           />
-          <p class="field__hint" id="code-hint">
-            A private ID only you know. Keep it: nobody, you included, can cancel this booking without it.
-          </p>
         </div>
 
         <fieldset class="when">
@@ -355,7 +352,7 @@ const quickOptions = QUICK_OPTIONS.map(({ when, label }) => {
                       <label for={`uid-${booking.id}`}>Enter the UID it was booked with</label>
                       <input
                         id={`uid-${booking.id}`}
-                        type="password"
+                        type="text"
                         name="cancelCode"
                         required
                         maxlength={CODE_MAX}

@@ -99,7 +99,7 @@ describe("my week", () => {
     const doc = await myWeek(cookie);
     const form = doc.querySelector<HTMLFormElement>('.mw-card form[action$="/cancel"]');
     expect(form).toBeTruthy();
-    expect(form?.querySelector('input[name="cancelCode"][type="password"]')).toBeTruthy();
+    expect(form?.querySelector('input[name="cancelCode"]')).toBeTruthy();
     const action = form?.getAttribute("action") ?? "";
 
     // a wrong code keeps the booking and says so on the week
