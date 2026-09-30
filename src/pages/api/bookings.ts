@@ -27,8 +27,10 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const bookedBy = String(form.get("bookedBy") ?? "").trim().slice(0, 80);
   const roomId = Number(form.get("roomId"));
 
+  // `#book` lands the browser back on the form it just sent, where the error
+  // (or, with scripts on, the confirmation) is shown, even with JS off.
   const back = (error?: string) =>
-    redirect(`/?${new URLSearchParams({ date, ...(error ? { error } : {}) })}`, 303);
+    redirect(`/?${new URLSearchParams({ date, ...(error ? { error } : {}) })}#book`, 303);
 
   if (!Number.isInteger(roomId) || !listRooms().some((room) => room.id === roomId)) return back("room");
   if (!bookedBy) return back("name");
