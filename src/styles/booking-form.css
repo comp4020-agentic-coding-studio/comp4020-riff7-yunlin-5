@@ -1,0 +1,651 @@
+/* The "Book a room" form. Ink on paper, like the rest of the board: ink is
+ * the action colour (the submit button, a chosen room, a pressed chip, focus),
+ * and --seal red appears here only where it means what it means everywhere
+ * else: a booking happening right now. Warnings are ink and weight, not red. */
+
+.book-form {
+  --muted: #6b6558;
+  --surface: #fffdf8;
+  --field: #ffffff;
+  --line-strong: #bdb4a2;
+  --ring: rgb(35 33 29 / 16%);
+  --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --radius: 14px;
+
+  display: grid;
+  gap: 1.35rem;
+  margin-block: 1.75rem 2rem;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 rgb(35 33 29 / 4%),
+    0 18px 40px -28px rgb(35 33 29 / 45%);
+  scroll-margin-top: 1rem;
+}
+
+/* ---- header ------------------------------------------------------------ */
+
+.book-form__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.book-form__head h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: normal;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.book-form__day {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--ui);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.book-form__rel {
+  padding: 0.05rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+/* ---- server error and confirmation ------------------------------------- */
+
+.book-form .error,
+.book-form__done {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  border-left: 3px solid var(--ink);
+  border-radius: 8px;
+  background: rgb(35 33 29 / 5%);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 0.9rem;
+  animation: bf-rise 320ms var(--ease) both;
+}
+
+.book-form .error {
+  font-weight: 600;
+}
+
+.book-form__done:empty {
+  display: none;
+}
+
+/* ---- fields ------------------------------------------------------------ */
+
+.book-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.book-form fieldset[hidden],
+.book-form [hidden] {
+  display: none !important;
+}
+
+.book-form label,
+.book-form legend {
+  display: block;
+  padding: 0;
+  margin-bottom: 0.4rem;
+  font-family: var(--ui);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+}
+
+.book-form legend {
+  margin-bottom: 0.6rem;
+}
+
+.book-form input:not([type="radio"]),
+.book-form select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  font-family: var(--ui);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: 2px solid transparent;
+  transition:
+    border-color 160ms var(--ease),
+    box-shadow 160ms var(--ease);
+}
+
+.book-form select {
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%2323211d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+}
+
+.book-form input:not([type="radio"]):hover,
+.book-form select:hover {
+  border-color: var(--line-strong);
+}
+
+.book-form input:not([type="radio"]):focus-visible,
+.book-form select:focus-visible {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.book-form input[aria-invalid="true"] {
+  border-color: var(--ink);
+  border-style: dashed;
+}
+
+/* ---- room cards (scripted; a plain <select> without JS) ----------------- */
+
+.room-picker__options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.book-form .room-choice {
+  position: relative;
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem 0.7rem;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: normal;
+  letter-spacing: 0;
+  transition:
+    background-color 200ms var(--ease),
+    border-color 200ms var(--ease),
+    color 200ms var(--ease),
+    box-shadow 200ms var(--ease),
+    transform 200ms var(--ease);
+}
+
+.room-choice input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.room-choice:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+
+.room-choice:has(input:checked) {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 10px 20px -14px rgb(35 33 29 / 70%);
+  transform: none;
+}
+
+.room-choice:has(input:focus-visible) {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.room-choice__code {
+  font-family: Georgia, "Times New Roman", Times, serif;
+  font-size: 1.3rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.room-choice__status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--ui);
+  font-size: 0.72rem;
+  color: var(--muted);
+  transition: color 200ms var(--ease);
+}
+
+.room-choice:has(input:checked) .room-choice__status {
+  color: rgb(246 243 236 / 78%);
+}
+
+.now-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--seal);
+  box-shadow: 0 0 0 2px var(--field);
+}
+
+.room-choice:has(input:checked) .now-dot {
+  box-shadow: 0 0 0 2px var(--paper);
+}
+
+/* A room picked somewhere else (the 3D model) gets a brief ink ring, so the
+ * eye lands on what just changed. */
+.room-choice.is-flash {
+  animation: bf-flash 750ms var(--ease);
+}
+
+/* ---- timeline ---------------------------------------------------------- */
+
+.timeline {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  font-family: var(--ui);
+}
+
+.timeline__bar {
+  --hours: 14;
+  position: relative;
+  height: 2.5rem;
+  overflow: hidden;
+  background-color: var(--field);
+  background-image: linear-gradient(to right, rgb(35 33 29 / 9%) 1px, transparent 1px);
+  background-size: calc(100% / var(--hours)) 100%;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.tl-past {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgb(35 33 29 / 6%);
+}
+
+.tl-block {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  border-radius: 5px;
+  background: repeating-linear-gradient(
+    135deg,
+    rgb(35 33 29 / 34%) 0 2px,
+    rgb(35 33 29 / 14%) 2px 6px
+  );
+  animation: bf-grow 360ms var(--ease) both;
+  transform-origin: left center;
+}
+
+.tl-block--now {
+  background: var(--seal);
+}
+
+.tl-now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  opacity: 0.55;
+}
+
+.tl-sel {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  box-sizing: border-box;
+  min-width: 6px;
+  border: 2px solid var(--ink);
+  border-radius: 7px;
+  background: rgb(35 33 29 / 8%);
+  box-shadow: 0 4px 10px -6px rgb(35 33 29 / 60%);
+  transition:
+    left 280ms var(--ease),
+    width 280ms var(--ease),
+    background-color 200ms var(--ease);
+}
+
+.tl-sel.is-clash {
+  border-style: dashed;
+  background: repeating-linear-gradient(
+    45deg,
+    rgb(35 33 29 / 22%) 0 3px,
+    rgb(35 33 29 / 6%) 3px 7px
+  );
+}
+
+.tl-sel.is-invalid {
+  border-style: dashed;
+  opacity: 0.55;
+}
+
+.timeline__axis {
+  position: relative;
+  height: 1rem;
+  margin-top: -0.2rem;
+}
+
+.tl-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.timeline__free {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.timeline__chips {
+  display: contents;
+}
+
+.timeline__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 0.15rem;
+}
+
+.timeline__none,
+.timeline__taken {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ---- chips (free windows, lengths, suggestions) ------------------------ */
+
+.book-form .chip {
+  font-family: var(--ui);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  padding: 0.4rem 0.75rem;
+  color: var(--ink);
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--ease),
+    border-color 160ms var(--ease),
+    color 160ms var(--ease),
+    transform 120ms var(--ease);
+}
+
+.book-form .chip:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.book-form .chip:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.book-form .chip[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.book-form .chip:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.book-form .chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.timeline__chips .chip {
+  animation: bf-rise 260ms var(--ease) both;
+}
+
+/* ---- when -------------------------------------------------------------- */
+
+.when__times {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 0.6rem;
+}
+
+.when__dash {
+  padding-bottom: 0.6rem;
+  color: var(--muted);
+}
+
+.durations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.book-form__hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.6rem;
+  margin: 0.75rem 0 0;
+  font-family: var(--ui);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.book-form__hint-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  animation: bf-rise 240ms var(--ease) both;
+}
+
+.book-form__hint-text::before {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.book-form__hint[data-tone="ok"] .book-form__hint-text::before {
+  content: "✓";
+  border: 1.5px solid currentColor;
+}
+
+.book-form__hint[data-tone="warn"] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.book-form__hint[data-tone="warn"] .book-form__hint-text::before {
+  content: "!";
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.book-form__hint[data-tone="note"] {
+  color: var(--ink);
+}
+
+.book-form__hint[data-tone="note"] .book-form__hint-text::before {
+  content: "i";
+  border: 1.5px solid currentColor;
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+
+/* ---- summary and submit ------------------------------------------------ */
+
+.book-form__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.book-form__summary {
+  display: grid;
+  margin: 0;
+  min-width: 0;
+}
+
+.book-form__summary-label {
+  font-family: var(--ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.book-form__summary-text {
+  font-size: 1.15rem;
+  font-weight: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.book-form__summary-length {
+  font-family: var(--ui);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.book-form__submit {
+  margin-left: auto;
+  padding: 0.8rem 1.5rem;
+  font-family: var(--ui);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -12px rgb(35 33 29 / 80%);
+  transition:
+    transform 140ms var(--ease),
+    box-shadow 180ms var(--ease),
+    background-color 180ms var(--ease);
+}
+
+.book-form__submit:hover {
+  background: #37342e;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px -12px rgb(35 33 29 / 85%);
+}
+
+.book-form__submit:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 4px 10px -8px rgb(35 33 29 / 80%);
+}
+
+.book-form__submit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.book-form.is-sending .book-form__submit {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/* No motion before the first paint: the timeline's selection would otherwise
+ * slide in from the left edge on load. */
+.book-form.is-enhanced:not(.is-ready) *,
+.book-form.is-enhanced:not(.is-ready) *::before {
+  transition: none !important;
+}
+
+/* ---- phone width ------------------------------------------------------- */
+
+@media (max-width: 520px) {
+  body {
+    padding: 1rem;
+  }
+
+  .book-form {
+    padding: 1.1rem;
+    gap: 1.15rem;
+  }
+
+  .room-picker__options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .book-form__submit {
+    width: 100%;
+  }
+}
+
+/* ---- motion ------------------------------------------------------------ */
+
+@keyframes bf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes bf-grow {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6);
+  }
+}
+
+@keyframes bf-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgb(35 33 29 / 45%);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgb(35 33 29 / 0%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-form *,
+  .book-form *::before,
+  .book-form *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

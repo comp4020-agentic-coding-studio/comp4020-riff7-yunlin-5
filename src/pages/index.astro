@@ -1,7 +1,10 @@
 ---
 import { canberraParts, canberraWallTimeToEpochMs, nextReloadTargetEpochMs, shiftDate } from "../lib/clock";
 import { listBookingsForDate, listRooms } from "../lib/db";
+import { roomForName } from "../lib/floorplan";
+import { DURATIONS, lengthLabel } from "../lib/timeslots";
 import "../styles.css";
+import "../styles/booking-form.css";
 
 // All times on this board are Canberra wall-clock text (see src/lib/schema.ts)
 // — "now" has to be read the same way, regardless of what timezone the
@@ -33,6 +36,55 @@ const roomsWithBookings = rooms.map((room) => ({
     .filter((b) => b.roomId === room.id)
     .map((b) => ({ ...b, active: isNowWithin(b.startTime, b.endTime) })),
 }));
+
+// The same answer, placed on the floor: every board room that has a room on
+// Chifley Level 3's plan, with whether (and by whom) it's in use right now.
+// src/scripts/floor3d.ts draws it; the caption says it in words.
+const onFloor = roomsWithBookings.flatMap(({ room, bookings }) => {
+  const place = roomForName(room.name);
+  if (!place) return [];
+  const now = bookings.find((b) => b.active);
+  return [{ id: room.id, code: place.code, active: Boolean(now), who: now?.bookedBy ?? null }];
+});
+const inUseNow = onFloor.filter((r) => r.active).map((r) => r.code);
+
+// What the booking form needs to preview a booking before it's sent: each
+// room's door code and its bookings for this date. src/scripts/booking-form.ts
+// reads it to draw the chosen room's timeline and warn about a clash; the
+// server (src/pages/api/bookings.ts) still has the final say on both.
+const codeFor = (name: string) => roomForName(name)?.code ?? name;
+const dayFormat = (options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat("en-AU", { ...options, timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
+const longDate = dayFormat({ weekday: "long", day: "numeric", month: "long" });
+const shortDate = dayFormat({ weekday: "short", day: "numeric", month: "short" });
+const relativeDay = isToday
+  ? "today"
+  : date === shiftDate(today, 1)
+    ? "tomorrow"
+    : date === shiftDate(today, -1)
+      ? "yesterday"
+      : null;
+const roomChoices = roomsWithBookings.map(({ room, bookings }) => {
+  const inUseNow = bookings.some((b) => b.active);
+  const count = bookings.length === 0 ? "No bookings" : `${bookings.length} booked`;
+  return {
+    id: room.id,
+    code: codeFor(room.name),
+    inUseNow,
+    status: isToday && inUseNow ? "In use now" : count,
+  };
+});
+const bookingData = {
+  date,
+  isToday,
+  isPast: date < today,
+  day: relativeDay ?? shortDate,
+  rooms: roomsWithBookings.map(({ room, bookings }) => ({
+    id: room.id,
+    code: codeFor(room.name),
+    bookings: bookings.map((b) => ({ start: b.startTime, end: b.endTime, active: b.active })),
+  })),
+};
 
 // Passed to the client script below so a tab left open across a booking's
 // start/end minute — or across midnight, with no bookings left to wait for
@@ -86,11 +138,111 @@ const nextBoundaryTarget = isToday
         <a href={`/?date=${shiftDate(date, 1)}`}>{shiftDate(date, 1)} &rarr;</a>
       </nav>
 
-      {error && (
-        <p class="error" role="alert">
-          {errorMessages[error] ?? "Something went wrong — try again."}
-        </p>
-      )}
+      <figure class="floor3d" data-rooms={JSON.stringify(onFloor)}>
+        <div class="floor3d-stage"></div>
+        <figcaption>
+          Chifley Library, Level 3{isToday ? "" : ` on ${date}`}.{" "}
+          {!isToday
+            ? "Rooms only light up for what's happening today."
+            : inUseNow.length === 0
+              ? "No group study room is in use right now."
+              : `In use right now: ${inUseNow.join(", ")}.`}{" "}
+          Drag to turn the floor; click a room to book it.
+        </figcaption>
+      </figure>
+
+      <form
+        method="post"
+        action="/api/bookings"
+        class="book-form"
+        id="book"
+        aria-labelledby="book-heading"
+        data-booking={JSON.stringify(bookingData)}
+      >
+        <header class="book-form__head">
+          <h2 id="book-heading">Book a room</h2>
+          <p class="book-form__day">
+            <span>{longDate}</span>
+            {relativeDay && <span class="book-form__rel">{relativeDay}</span>}
+          </p>
+        </header>
+
+        {error && (
+          <p class="error" role="alert">
+            {errorMessages[error] ?? "Something went wrong — try again."}
+          </p>
+        )}
+        <p class="book-form__done" role="status"></p>
+
+        <input type="hidden" name="date" value={date} />
+
+        <div class="field field--select">
+          <label for="roomId">Room</label>
+          <select id="roomId" name="roomId" required>
+            {rooms.map((room) => (
+              <option value={room.id}>{room.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <fieldset class="room-picker" hidden>
+          <legend>Room</legend>
+          <div class="room-picker__options">
+            {roomChoices.map((choice, index) => (
+              <label class="room-choice">
+                <input type="radio" name="roomChoice" value={choice.id} checked={index === 0} />
+                <span class="room-choice__code">{choice.code}</span>
+                <span class="room-choice__status">
+                  {choice.inUseNow && <span class="now-dot" aria-hidden="true" />}
+                  {choice.status}
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="bookedBy">Your name</label>
+          <input id="bookedBy" name="bookedBy" required maxlength="80" autocomplete="name" />
+        </div>
+
+        <fieldset class="when">
+          <legend>When</legend>
+          <div class="timeline" hidden>
+            <div class="timeline__bar" aria-hidden="true"></div>
+            <div class="timeline__axis" aria-hidden="true"></div>
+            <div class="timeline__free">
+              <span class="timeline__label" id="free-label">Free</span>
+              <div class="timeline__chips" role="group" aria-labelledby="free-label"></div>
+            </div>
+            <p class="timeline__taken"></p>
+          </div>
+          <div class="when__times">
+            <div class="field">
+              <label for="startTime">From</label>
+              <input id="startTime" name="startTime" type="time" required aria-describedby="time-hint" />
+            </div>
+            <span class="when__dash" aria-hidden="true">–</span>
+            <div class="field">
+              <label for="endTime">To</label>
+              <input id="endTime" name="endTime" type="time" required aria-describedby="time-hint" />
+            </div>
+          </div>
+          <div class="durations" role="group" aria-label="Length" hidden>
+            {DURATIONS.map((minutes) => (
+              <button type="button" class="chip" data-minutes={minutes} aria-pressed="false">
+                {lengthLabel(minutes)}
+              </button>
+            ))}
+          </div>
+          <p class="book-form__hint" id="time-hint" aria-live="polite"></p>
+        </fieldset>
+
+        <div class="book-form__foot">
+          <p class="book-form__summary" hidden></p>
+          <button type="submit" class="book-form__submit">Book for {relativeDay ?? shortDate}</button>
+        </div>
+      </form>
 
       <div class="rooms">
         {roomsWithBookings.map(({ room, bookings }) => (
@@ -114,32 +266,6 @@ const nextBoundaryTarget = isToday
           </section>
         ))}
       </div>
-
-      <form method="post" action="/api/bookings" class="book-form">
-        <h2>Book a room</h2>
-        <input type="hidden" name="date" value={date} />
-        <div>
-          <label for="roomId">Room</label>
-          <select id="roomId" name="roomId" required>
-            {rooms.map((room) => (
-              <option value={room.id}>{room.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label for="bookedBy">Your name</label>
-          <input id="bookedBy" name="bookedBy" required maxlength="80" />
-        </div>
-        <div>
-          <label for="startTime">From</label>
-          <input id="startTime" name="startTime" type="time" required />
-        </div>
-        <div>
-          <label for="endTime">To</label>
-          <input id="endTime" name="endTime" type="time" required />
-        </div>
-        <button>Book {date}</button>
-      </form>
     </main>
     <script is:inline define:vars={{ date, nextBoundaryTarget }}>
       // The board's live half: any tab looking at this same date reloads the
@@ -184,6 +310,12 @@ const nextBoundaryTarget = isToday
       if (nextBoundaryTarget !== null) {
         setTimeout(() => location.reload(), Math.max(0, nextBoundaryTarget - Date.now()) + 5_000);
       }
+    </script>
+    <script>
+      import "../scripts/floor3d";
+    </script>
+    <script>
+      import "../scripts/booking-form";
     </script>
   </body>
 </html>

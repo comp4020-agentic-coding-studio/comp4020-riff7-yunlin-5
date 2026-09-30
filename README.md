@@ -31,6 +31,24 @@ source:
 Deliberately left out, as judgement calls rather than enforced rules: no
 login (the real system's biggest source of friction, and out of scope for a
 prototype with no real ANU identities to check), no room search across all of
-ANU (three seeded rooms are enough to show the mechanic), and no recurring
+ANU (the four group study rooms on Chifley Library's Level 3 are enough to show
+the mechanic), and no recurring
 bookings (a booking board that only ever books one slot at a time is honest
 about what it models --- a real timetable is a different, bigger system).
+
+## The riff: the floor, in 3D
+
+A booking system tells you a room's number; it doesn't tell you where that
+room is, or what's going on around it. The board now opens on a 3D model of
+Chifley Library's Level 3, traced from the library's own floor plan, with the
+four group study rooms it books (3.04--3.07) standing on it. The same red
+still means only one thing: a room goes red while a booking in it is
+happening right now, the same answer the list gives, and it updates whenever
+the list does. Drag to turn the floor; click a room to pick it in the booking
+form. The model is traced by eye, with no scale bar to go on, so the shapes
+are right and the metres are approximate --- and everything it shows is also
+in the list and the caption below it, for anyone who can't see it.
+
+Enforced by `spec/floor.test.ts`: every room on the board has a place on the
+plan, and a room in use right now is marked in use on the floor and named in
+its caption.

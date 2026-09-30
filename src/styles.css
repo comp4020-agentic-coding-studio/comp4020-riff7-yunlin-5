@@ -118,44 +118,61 @@ nav[aria-label="date"] {
   cursor: pointer;
 }
 
-.book-form {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  align-items: end;
-  border-top: 1px solid var(--line);
-  padding-top: 1.25rem;
+.floor3d {
+  margin: 1.5rem 0 0;
 }
 
-.book-form h2 {
-  grid-column: 1 / -1;
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.book-form label {
-  display: block;
-  font-size: 0.85rem;
-  margin-bottom: 0.2rem;
-}
-
-.book-form input,
-.book-form select {
-  width: 100%;
-  padding: 0.4rem 0.5rem;
-  font: inherit;
+.floor3d-stage {
+  position: relative;
+  height: min(26rem, 70vw);
   border: 1px solid var(--line);
-  border-radius: 0.2rem;
-  background: white;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  touch-action: none;
+  background: #ebe6da;
 }
 
-.book-form button {
-  grid-column: 1 / -1;
-  font: inherit;
-  padding: 0.5rem 1rem;
+.floor3d-stage canvas {
+  display: block;
+}
+
+.floor3d-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.floor3d-label {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--paper);
   border: 1px solid var(--ink);
   border-radius: 0.2rem;
+  padding: 0 0.3rem;
+  white-space: nowrap;
+}
+
+.floor3d-label--quiet {
+  font-size: 0.7rem;
+  color: #6b6558;
+  border-color: var(--line);
+}
+
+.floor3d-label--selected {
   background: var(--ink);
+  border-color: var(--ink);
   color: var(--paper);
-  cursor: pointer;
+  font-weight: bold;
+}
+
+.floor3d-label--now {
+  background: var(--seal);
+  border-color: var(--seal);
+  color: var(--paper);
+}
+
+.floor3d figcaption {
+  font-size: 0.9rem;
+  color: #6b6558;
+  margin-top: 0.4rem;
 }
