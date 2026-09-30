@@ -423,7 +423,7 @@ function enhance(form: HTMLFormElement) {
   let restored = false;
   if (booked) {
     const code = data.rooms.find((r) => String(r.id) === draft.roomId)?.code ?? "";
-    done.textContent = `Booked ${code} · ${draft.startTime}–${draft.endTime} · ${data.day}. It's on the board below.`;
+    done.textContent = `Booked ${code} · ${draft.startTime}–${draft.endTime} · ${data.day}. View it in All rooms or My week.`;
     done.classList.add("is-shown");
     nameInput.value = draft.bookedBy;
   } else if (fresh) {

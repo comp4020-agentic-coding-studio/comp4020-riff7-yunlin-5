@@ -7,6 +7,7 @@
 // with the 3D model: set #roomId and dispatch `change`, set the time inputs
 // and dispatch `input`. The form's own hint and summary then say what was
 // picked, and the server still has the final say on clashes.
+import { showBoardPanel } from "./board-panels";
 import { canberraParts, shiftDate } from "../lib/clock";
 import { QUICK_LENGTH, type QuickWhen, quickStart } from "../lib/quickwhen";
 import { LAST_MINUTE, toMinutes, toTime } from "../lib/timeslots";
@@ -62,6 +63,7 @@ function targetFor(when: QuickWhen) {
 
 function fillForm(start: number) {
   if (!form) return;
+  showBoardPanel("book");
   const data = readData();
   const select = form.querySelector<HTMLSelectElement>("#roomId");
   const startInput = form.querySelector<HTMLInputElement>("#startTime");

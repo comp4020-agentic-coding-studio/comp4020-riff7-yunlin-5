@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { showBoardPanel } from "./board-panels";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DObject, CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import { canberraParts } from "../lib/clock";
@@ -244,23 +245,23 @@ function mount(figure: HTMLElement): void {
     const at = covering(room.bookings, viewTime);
     return at ? { look: "booked", booking: at } : { look: "free", booking: null };
   };
-  // One ordinary HTML card follows the selected room's existing screen label.
-  // Selection stays on the map; only the explicit booking link leaves it.
+  // Details live in the adjacent tools column, leaving the entire canvas clear.
   const info = document.createElement("section");
   info.className = "floor3d-info";
   info.id = "floor3d-info";
-  info.hidden = true;
+  info.hidden = false;
   info.tabIndex = -1;
   info.setAttribute("aria-labelledby", "floor3d-info-title");
   info.innerHTML = `
-    <button type="button" class="floor3d-info__close" aria-label="Close room details">×</button>
     <h3 id="floor3d-info-title"></h3>
     <p class="floor3d-info__date"></p>
     <p class="floor3d-info__status" role="status"></p>
     <ul aria-label="Bookings for this day"></ul>
     <a href="#book">Book this room</a>`;
-  stage.append(info);
-  let detailRoom: FloorRoom | null = null;
+  const infoHost = document.querySelector<HTMLElement>("#room-info-host");
+  (infoHost ?? figure).append(info);
+  if (infoHost) infoHost.replaceChildren(info);
+  let detailRoom: FloorRoom | null = rooms[0] ?? null;
   const renderInfo = () => {
     if (!detailRoom) return;
     info.querySelector("h3")!.textContent = `Room ${detailRoom.code}`;
@@ -282,38 +283,6 @@ function mount(figure: HTMLElement): void {
     }
     info.querySelector("ul")!.replaceChildren(...rows);
   };
-  const positionInfo = () => {
-    if (info.hidden || !detailRoom) return;
-    const anchor = detailRoom.tag.getBoundingClientRect();
-    const bounds = stage.getBoundingClientRect();
-    const x = anchor.left - bounds.left;
-    const y = anchor.top - bounds.top;
-    const width = info.offsetWidth;
-    const height = info.offsetHeight;
-    const left = x > stage.clientWidth - x - anchor.width ? x - width - 12 : x + anchor.width + 12;
-    info.style.left = `${Math.max(8, Math.min(left, stage.clientWidth - width - 8))}px`;
-    info.style.top = `${Math.max(8, Math.min(y - height / 2, stage.clientHeight - height - 8))}px`;
-    info.style.visibility = anchor.width && x + anchor.width >= 0 && x <= stage.clientWidth
-      && y + anchor.height >= 0 && y <= stage.clientHeight ? "visible" : "hidden";
-  };
-  const closeInfo = (restoreFocus = false) => {
-    if (restoreFocus) detailRoom?.tag.focus({ preventScroll: true });
-    detailRoom = null;
-    info.hidden = true;
-    for (const room of rooms) room.tag.setAttribute("aria-expanded", "false");
-  };
-  info.querySelector("button")!.addEventListener("click", () => closeInfo(true));
-  stage.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !info.hidden) {
-      event.stopPropagation();
-      closeInfo(true);
-    }
-  });
-  info.querySelector("a")!.addEventListener("click", () => {
-    closeInfo();
-    document.querySelector<HTMLInputElement>("#bookedBy")?.focus({ preventScroll: true });
-  });
-
   // A taken room says when it frees up rather than who has it: the end of the
   // booking it's in, carried on through any booking that starts right then.
   const freesAt = (room: FloorRoom, booking: RoomBooking) => {
@@ -363,11 +332,11 @@ function mount(figure: HTMLElement): void {
       r.tag.classList.toggle("floor3d-label--selected", r === chosen);
       if (reducedMotion.matches) r.group.scale.y = r.lift;
     }
-    if (detailRoom && chosen) {
+    if (chosen) {
       detailRoom = chosen;
       renderInfo();
     }
-    for (const r of rooms) r.tag.setAttribute("aria-expanded", String(r === detailRoom));
+    for (const r of rooms) r.tag.setAttribute("aria-pressed", String(r === chosen));
     for (const listener of selectListeners) listener(chosen);
   };
   select?.addEventListener("change", showSelected);
@@ -400,9 +369,10 @@ function mount(figure: HTMLElement): void {
   // rooms themselves.
   const frameDefault = () => {
     if (restored) return;
-    if (camera.aspect >= 1.3) {
+    if (stage.clientWidth >= 600) {
+      const fit = Math.max(1, 1.3 / camera.aspect);
       controls.target.set(gx * 0.25, 0, gz * 0.25);
-      camera.position.set(gx * 0.25, 72, 74);
+      camera.position.set(gx * 0.25, 72 * fit, 74 * fit);
     } else {
       controls.target.set(gx - 4, 0, gz);
       camera.position.set(gx - 4, 34, gz + 30);
@@ -445,7 +415,7 @@ function mount(figure: HTMLElement): void {
     }
     renderInfo();
     info.hidden = false;
-    positionInfo();
+    showBoardPanel("room-details");
     info.focus({ preventScroll: true });
   };
   for (const room of rooms) {
@@ -478,7 +448,7 @@ function mount(figure: HTMLElement): void {
   renderer.domElement.addEventListener("pointerup", (e) => {
     if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
     const hit = pick(e);
-    if (!hit) return closeInfo();
+    if (!hit) return;
     const room = rooms.find((r) => r.id === hit.userData.roomId);
     if (room) openInfo(room);
   });
@@ -492,7 +462,6 @@ function mount(figure: HTMLElement): void {
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
-    positionInfo();
   });
 
   resolveFloor({

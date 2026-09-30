@@ -9,6 +9,7 @@ import MyWeek from "../components/MyWeek.astro";
 import "../styles.css";
 import "../styles/booking-form.css";
 import "../styles/quick-when.css";
+import "../styles/board-layout.css";
 
 // All times on this board are Canberra wall-clock text (see src/lib/schema.ts)
 // — "now" has to be read the same way, regardless of what timezone the
@@ -151,246 +152,243 @@ const quickOptions = QUICK_OPTIONS.map(({ when, label }) => {
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Room board</title>
   </head>
-  <body>
+  <body class="board-page">
     <nav aria-label="site" class="jump">
       <a href="#top" class="jump__brand">Room board</a>
-      <a href="#floor" class="jump__btn">Floor</a>
-      <a href="#book" class="jump__btn">Book</a>
-      <a href="#rooms" class="jump__btn">Today's rooms</a>
-      <a href="#my-week" class="jump__btn">My week</a>
       <a href="/readme/" class="jump__btn jump__btn--quiet">About</a>
     </nav>
-    <main id="top">
-      <h1>Room board</h1>
-      <p>
-        A shared, live view of a handful of ANU Library group study rooms: who's booked what, and what's free — see
-        the <a href="/readme/">About page</a> for what this prototype is standing in for.
-      </p>
+    <main id="top" class="board-shell">
+      <header class="board-heading">
+        <div><h1>Chifley Library</h1><p>Level 3 · Group study rooms</p></div>
+        <nav aria-label="date" class="datenav">
+          <a href={`/?date=${shiftDate(date, -1)}`}>&larr; {shiftDate(date, -1)}</a>
+          <strong>{date}{isToday ? " (today)" : ""}</strong>
+          <a href={`/?date=${shiftDate(date, 1)}`}>{shiftDate(date, 1)} &rarr;</a>
+        </nav>
+        <p class="board-live" data-next-boundary={nextBoundaryTarget ?? ""} hidden></p>
+      </header>
+      <div class="board-workspace">
+        <figure id="floor" class="floor3d" data-rooms={JSON.stringify(onFloor)} data-date={date}>
+          <div class="floor3d-stage"></div>
+          {/* Filled by src/scripts/floor3d-time.ts once the model mounts. */}
+          <div class="floor3d-time" hidden></div>
+          <figcaption>
+            Chifley Library, Level 3{isToday ? "" : ` on ${date}`}.{" "}
+            {!isToday
+              ? "Rooms only light up for what's happening today."
+              : inUseNow.length === 0
+                ? "No group study room is in use right now."
+                : `In use right now: ${inUseNow.join(", ")}.`}{" "}
+            Drag to turn the floor; click a room to see its bookings.
+          </figcaption>
+        </figure>
+        <aside class="board-sidebar" aria-label="Room tools">
+          <nav class="board-tabs" aria-label="Room tools navigation">
+            <a href="#room-details">Room</a>
+            <a href="#book">Book</a>
+            <a href="#rooms">All rooms</a>
+            <a href="#my-week">My week</a>
+          </nav>
+          <div class="board-sidebar-content">
+            <section id="room-details" data-board-panel="room-details">
+              <div id="room-info-host">
+                <h2 class="board-panel-title">Explore the floor</h2>
+                <p class="board-panel-note">Select a room on the map to see its bookings and directions, or use Book and All rooms.</p>
+              </div>
+              <details class="board-directions">
+                <summary>Getting there</summary>
+                <p class="floor3d-route" aria-live="polite" hidden></p>
+              </details>
+            </section>
+            <section data-board-panel="book" aria-label="Book a room">
+              <section class="quick" aria-labelledby="quick-heading">
+                <h2 id="quick-heading">When do you need a room?</h2>
+                <p class="quick__lede">Pick one and we'll find a free room for an hour — you just add your name.</p>
+                <div class="quick__opts">
+                  {quickOptions.map((option) => (
+                    <a class="quick__opt" href={option.href} data-when={option.when} hidden={option.start === null}>
+                      <span class="quick__label">{option.label}</span>
+                      <span class="quick__time">{option.time}</span>
+                      <span class="quick__free"></span>
+                    </a>
+                  ))}
+                </div>
+              </section>
 
-      <section class="quick" aria-labelledby="quick-heading">
-        <h2 id="quick-heading">When do you need a room?</h2>
-        <p class="quick__lede">Pick one and we'll find a free room for an hour — you just add your name.</p>
-        <div class="quick__opts">
-          {quickOptions.map((option) => (
-            <a class="quick__opt" href={option.href} data-when={option.when} hidden={option.start === null}>
-              <span class="quick__label">{option.label}</span>
-              <span class="quick__time">{option.time}</span>
-              <span class="quick__free"></span>
-            </a>
-          ))}
-        </div>
-      </section>
+              <form
+                method="post"
+                action="/api/bookings"
+                class="book-form"
+                id="book"
+                aria-labelledby="book-heading"
+                data-booking={JSON.stringify(bookingData)}
+              >
+                <header class="book-form__head">
+                  <h2 id="book-heading">Book a room</h2>
+                  <p class="book-form__day">
+                    <span>{longDate}</span>
+                    {relativeDay && <span class="book-form__rel">{relativeDay}</span>}
+                  </p>
+                </header>
 
-      <nav aria-label="date" class="datenav">
-        <a href={`/?date=${shiftDate(date, -1)}`}>&larr; {shiftDate(date, -1)}</a>
-        <strong>{date}{isToday ? " (today)" : ""}</strong>
-        <a href={`/?date=${shiftDate(date, 1)}`}>{shiftDate(date, 1)} &rarr;</a>
-      </nav>
-      {/* Filled in by src/scripts/board-live.ts. With scripts off the page is a
-          snapshot, so it stays hidden. data-next-boundary is the same instant
-          the inline script below waits for, carried as data so a patched-in
-          render can hand its own next boundary to the live script. */}
-      <p class="board-live" data-next-boundary={nextBoundaryTarget ?? ""} hidden></p>
+                {error && (
+                  <p class="error" role="alert">
+                    {errorMessages[error] ?? "Something went wrong — try again."}
+                  </p>
+                )}
+                <p class="book-form__done" role="status"></p>
 
-      <div class="cta">
-        <a href="#book" class="cta__btn cta__btn--primary">Book a room</a>
-        <a href="#my-week" class="cta__btn">See my week</a>
-        <a href="#floor" class="cta__btn">Find it on the floor</a>
-      </div>
+                <input type="hidden" name="date" value={date} />
 
-      <figure id="floor" class="floor3d" data-rooms={JSON.stringify(onFloor)} data-date={date}>
-        <div class="floor3d-stage"></div>
-        {/* Filled by src/scripts/floor3d-time.ts and floor3d-route.ts once the model mounts. */}
-        <div class="floor3d-time" hidden></div>
-        <p class="floor3d-route" aria-live="polite" hidden></p>
-        <figcaption>
-          Chifley Library, Level 3{isToday ? "" : ` on ${date}`}.{" "}
-          {!isToday
-            ? "Rooms only light up for what's happening today."
-            : inUseNow.length === 0
-              ? "No group study room is in use right now."
-              : `In use right now: ${inUseNow.join(", ")}.`}{" "}
-          Drag to turn the floor; click a room to see its bookings.
-        </figcaption>
-      </figure>
+                <div class="field field--select">
+                  <label for="roomId">Room</label>
+                  <select id="roomId" name="roomId" required>
+                    {rooms.map((room) => (
+                      <option value={room.id}>{room.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-      <form
-        method="post"
-        action="/api/bookings"
-        class="book-form"
-        id="book"
-        aria-labelledby="book-heading"
-        data-booking={JSON.stringify(bookingData)}
-      >
-        <header class="book-form__head">
-          <h2 id="book-heading">Book a room</h2>
-          <p class="book-form__day">
-            <span>{longDate}</span>
-            {relativeDay && <span class="book-form__rel">{relativeDay}</span>}
-          </p>
-        </header>
-
-        {error && (
-          <p class="error" role="alert">
-            {errorMessages[error] ?? "Something went wrong — try again."}
-          </p>
-        )}
-        <p class="book-form__done" role="status"></p>
-
-        <input type="hidden" name="date" value={date} />
-
-        <div class="field field--select">
-          <label for="roomId">Room</label>
-          <select id="roomId" name="roomId" required>
-            {rooms.map((room) => (
-              <option value={room.id}>{room.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <fieldset class="room-picker" hidden>
-          <legend>Room</legend>
-          <div class="room-picker__options">
-            {roomChoices.map((choice, index) => (
-              <label class="room-choice">
-                <input type="radio" name="roomChoice" value={choice.id} checked={index === 0} />
-                <span class="room-choice__code">{choice.code}</span>
-                <span class="room-choice__status">
-                  {choice.inUseNow && <span class="now-dot" aria-hidden="true" />}
-                  {choice.status}
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <div class="field">
-          <label for="bookedBy">Your name</label>
-          <input id="bookedBy" name="bookedBy" required maxlength="80" autocomplete="name" />
-        </div>
-
-        <div class="field">
-          <label for="cancelCode">UID</label>
-          <input
-            id="cancelCode"
-            name="cancelCode"
-            type="text"
-            required
-            minlength={CODE_MIN}
-            maxlength={CODE_MAX}
-            autocomplete="off"
-            spellcheck="false"
-          />
-        </div>
-
-        <fieldset class="when">
-          <legend>When</legend>
-          <div class="timeline" hidden>
-            <div class="timeline__bar" aria-hidden="true"></div>
-            <div class="timeline__axis" aria-hidden="true"></div>
-            <div class="timeline__free">
-              <span class="timeline__label" id="free-label">Free</span>
-              <div class="timeline__chips" role="group" aria-labelledby="free-label"></div>
-            </div>
-            <p class="timeline__taken"></p>
-          </div>
-          <div class="when__times">
-            <div class="field">
-              <label for="startTime">From</label>
-              <input id="startTime" name="startTime" type="time" required aria-describedby="time-hint" />
-            </div>
-            <span class="when__dash" aria-hidden="true">–</span>
-            <div class="field">
-              <label for="endTime">To</label>
-              <input id="endTime" name="endTime" type="time" required aria-describedby="time-hint" />
-            </div>
-          </div>
-          <div class="durations" role="group" aria-label="Length" hidden>
-            {DURATIONS.map((minutes) => (
-              <button type="button" class="chip" data-minutes={minutes} aria-pressed="false">
-                {lengthLabel(minutes)}
-              </button>
-            ))}
-          </div>
-          <p class="book-form__hint" id="time-hint" aria-live="polite"></p>
-        </fieldset>
-
-        <div class="book-form__foot">
-          <p class="book-form__summary" hidden></p>
-          <button type="submit" class="book-form__submit">Book for {relativeDay ?? shortDate}</button>
-        </div>
-      </form>
-
-      <div id="rooms" class="rooms">
-        {roomsWithBookings.map(({ room, bookings }) => (
-          <section class="room" aria-labelledby={`room-${room.id}`}>
-            <h2 id={`room-${room.id}`}>{room.name}</h2>
-            <ul>
-              {bookings.length === 0 && <li class="empty">Free all day</li>}
-              {bookings.map((booking) => (
-                <li id={`slot-${booking.id}`} class={booking.active ? "active" : undefined}>
-                  <span class="time">
-                    {booking.startTime}–{booking.endTime}
-                  </span>
-                  <span class="who">{booking.bookedBy}</span>
-                  <button type="button" popovertarget={`cancel-${booking.id}`}>Cancel</button>
-                  {/* Cancel asks for the booking's UID in a card (a native
-                      popover, so it works with no script); Enter sends it. */}
-                  <div
-                    popover
-                    id={`cancel-${booking.id}`}
-                    class="cancel-card"
-                    role="dialog"
-                    aria-labelledby={`cancel-${booking.id}-title`}
-                  >
-                    <form method="post" action={`/api/bookings/${booking.id}/cancel`}>
-                      <h3 id={`cancel-${booking.id}-title`}>Cancel this booking?</h3>
-                      <p class="cancel-card__what">
-                        {room.name}, {booking.startTime} to {booking.endTime}
-                      </p>
-                      <input type="hidden" name="date" value={date} />
-                      <label for={`uid-${booking.id}`}>Enter the UID it was booked with</label>
-                      <input
-                        id={`uid-${booking.id}`}
-                        type="text"
-                        name="cancelCode"
-                        required
-                        maxlength={CODE_MAX}
-                        autocomplete="off"
-                        autofocus
-                        aria-invalid={cancelError === booking.id ? "true" : undefined}
-                        aria-describedby={cancelError === booking.id ? `uid-${booking.id}-error` : undefined}
-                      />
-                      {cancelError === booking.id && (
-                        <p class="cancel-error" id={`uid-${booking.id}-error`} role="alert">
-                          That UID doesn't match this booking. Nothing was cancelled.
-                        </p>
-                      )}
-                      <div class="cancel-card__actions">
-                        <button type="submit" class="cancel-card__confirm">Cancel booking</button>
-                        <button type="button" popovertarget={`cancel-${booking.id}`} popovertargetaction="hide">
-                          Keep it
-                        </button>
-                      </div>
-                    </form>
+                <fieldset class="room-picker" hidden>
+                  <legend>Room</legend>
+                  <div class="room-picker__options">
+                    {roomChoices.map((choice, index) => (
+                      <label class="room-choice">
+                        <input type="radio" name="roomChoice" value={choice.id} checked={index === 0} />
+                        <span class="room-choice__code">{choice.code}</span>
+                        <span class="room-choice__status">
+                          {choice.inUseNow && <span class="now-dot" aria-hidden="true" />}
+                          {choice.status}
+                        </span>
+                      </label>
+                    ))}
                   </div>
-                </li>
+                </fieldset>
+
+                <div class="field">
+                  <label for="bookedBy">Your name</label>
+                  <input id="bookedBy" name="bookedBy" required maxlength="80" autocomplete="name" />
+                </div>
+
+                <div class="field">
+                  <label for="cancelCode">UID</label>
+                  <input
+                    id="cancelCode"
+                    name="cancelCode"
+                    type="text"
+                    required
+                    minlength={CODE_MIN}
+                    maxlength={CODE_MAX}
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+
+                <fieldset class="when">
+                  <legend>When</legend>
+                  <div class="timeline" hidden>
+                    <div class="timeline__bar" aria-hidden="true"></div>
+                    <div class="timeline__axis" aria-hidden="true"></div>
+                    <div class="timeline__free">
+                      <span class="timeline__label" id="free-label">Free</span>
+                      <div class="timeline__chips" role="group" aria-labelledby="free-label"></div>
+                    </div>
+                    <p class="timeline__taken"></p>
+                  </div>
+                  <div class="when__times">
+                    <div class="field">
+                      <label for="startTime">From</label>
+                      <input id="startTime" name="startTime" type="time" required aria-describedby="time-hint" />
+                    </div>
+                    <span class="when__dash" aria-hidden="true">–</span>
+                    <div class="field">
+                      <label for="endTime">To</label>
+                      <input id="endTime" name="endTime" type="time" required aria-describedby="time-hint" />
+                    </div>
+                  </div>
+                  <div class="durations" role="group" aria-label="Length" hidden>
+                    {DURATIONS.map((minutes) => (
+                      <button type="button" class="chip" data-minutes={minutes} aria-pressed="false">
+                        {lengthLabel(minutes)}
+                      </button>
+                    ))}
+                  </div>
+                  <p class="book-form__hint" id="time-hint" aria-live="polite"></p>
+                </fieldset>
+
+                <div class="book-form__foot">
+                  <p class="book-form__summary" hidden></p>
+                  <button type="submit" class="book-form__submit">Book for {relativeDay ?? shortDate}</button>
+                </div>
+              </form>
+
+            </section>
+            <div id="rooms" class="rooms" data-board-panel="rooms">
+              {roomsWithBookings.map(({ room, bookings }) => (
+                <section class="room" aria-labelledby={`room-${room.id}`}>
+                  <h2 id={`room-${room.id}`}>{room.name}</h2>
+                  <ul>
+                    {bookings.length === 0 && <li class="empty">Free all day</li>}
+                    {bookings.map((booking) => (
+                      <li id={`slot-${booking.id}`} class={booking.active ? "active" : undefined}>
+                        <span class="time">
+                          {booking.startTime}–{booking.endTime}
+                        </span>
+                        <span class="who">{booking.bookedBy}</span>
+                        <button type="button" popovertarget={`cancel-${booking.id}`}>Cancel</button>
+                        {/* Cancel asks for the booking's UID in a card (a native
+                            popover, so it works with no script); Enter sends it. */}
+                        <div
+                          popover
+                          id={`cancel-${booking.id}`}
+                          class="cancel-card"
+                          role="dialog"
+                          aria-labelledby={`cancel-${booking.id}-title`}
+                        >
+                          <form method="post" action={`/api/bookings/${booking.id}/cancel`}>
+                            <h3 id={`cancel-${booking.id}-title`}>Cancel this booking?</h3>
+                            <p class="cancel-card__what">
+                              {room.name}, {booking.startTime} to {booking.endTime}
+                            </p>
+                            <input type="hidden" name="date" value={date} />
+                            <label for={`uid-${booking.id}`}>Enter the UID it was booked with</label>
+                            <input
+                              id={`uid-${booking.id}`}
+                              type="text"
+                              name="cancelCode"
+                              required
+                              maxlength={CODE_MAX}
+                              autocomplete="off"
+                              autofocus
+                              aria-invalid={cancelError === booking.id ? "true" : undefined}
+                              aria-describedby={cancelError === booking.id ? `uid-${booking.id}-error` : undefined}
+                            />
+                            {cancelError === booking.id && (
+                              <p class="cancel-error" id={`uid-${booking.id}-error`} role="alert">
+                                That UID doesn't match this booking. Nothing was cancelled.
+                              </p>
+                            )}
+                            <div class="cancel-card__actions">
+                              <button type="submit" class="cancel-card__confirm">Cancel booking</button>
+                              <button type="button" popovertarget={`cancel-${booking.id}`} popovertargetaction="hide">
+                                Keep it
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
-          </section>
-        ))}
+            </div>
+
+            <MyWeek />
+          </div>
+        </aside>
       </div>
-      <MyWeek />
     </main>
-    <script is:inline define:vars={{ cancelError }}>
-      // Back from a wrong UID: reopen the card it was typed into (the board's,
-      // or My week's when that's where it came from), so the person can try
-      // again where they were.
-      if (cancelError) {
-        const card = location.hash === "#my-week" ? `booking-${cancelError}` : `cancel-${cancelError}`;
-        document.getElementById(card)?.showPopover?.();
-      }
-    </script>
+
     <script is:inline define:vars={{ date, nextBoundaryTarget }}>
       // The board's live half: any tab looking at this same date brings itself
       // up to date the moment a booking is made or cancelled anywhere, so two
@@ -457,6 +455,7 @@ const quickOptions = QUICK_OPTIONS.map(({ when, label }) => {
       }
     </script>
     <script>
+      import "../scripts/board-panels";
       import "../scripts/floor3d";
       import "../scripts/floor3d-route";
       import "../scripts/floor3d-time";

@@ -1,0 +1,97 @@
+/* The map and tools own separate columns: no panel covers the canvas. */
+.board-page { padding: 0; }
+.board-page [hidden] { display: none !important; }
+.board-page .floor3d-stage canvas { position: absolute; inset: 0; }
+.board-page .jump { position: static; margin: 0; padding: 0.65rem 1.5rem; min-height: 3.5rem; box-sizing: border-box; }
+.board-page .jump__brand { display: inline; }
+.board-page .board-shell { max-width: none; margin: 0; padding: 1rem 1.5rem 1.5rem; box-sizing: border-box; }
+.board-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem 1.5rem; margin-bottom: 1rem; }
+.board-heading h1 { margin: 0; font-size: 1.6rem; line-height: 1.2; font-weight: normal; }
+.board-heading p { margin: 0.2rem 0 0; color: #6b6558; font: 0.8rem/1.5 system-ui, sans-serif; }
+.board-page .datenav { gap: 1rem; margin: 0; font-size: 0.85rem; }
+.board-page .datenav strong { white-space: nowrap; }
+.board-page .board-live { margin: 0; font: 0.75rem/1.5 system-ui, sans-serif; }
+.board-workspace { display: grid; grid-template-columns: minmax(0, 1fr) clamp(22rem, 30vw, 27rem); gap: 1.25rem; align-items: stretch; }
+.board-page .floor3d { display: grid; grid-template-rows: minmax(0, 1fr) auto auto; gap: 0.7rem; margin: 0; min-width: 0; min-height: 0; }
+.board-page .floor3d-stage { height: 100%; min-height: 24rem; border-radius: 1rem; }
+.board-page .floor3d-time { margin: 0; border-radius: 0.8rem; --ft-strip: 22px; padding: 0.6rem 0.9rem; }
+.board-page .floor3d figcaption { margin: 0; font: 0.75rem/1.5 system-ui, sans-serif; }
+.board-sidebar { min-width: 0; background: #fffdf8; border: 1px solid var(--line); border-radius: 1rem; box-shadow: 0 12px 35px -28px #23211d66; }
+.board-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.25rem; padding: 0.6rem; border-bottom: 1px solid var(--line); }
+.board-tabs a { padding: 0.6rem 0.25rem; border-radius: 0.6rem; text-align: center; color: var(--ink); text-decoration: none; font: 0.8rem/1.4 system-ui, sans-serif; white-space: nowrap; }
+.board-tabs a:hover { background: #ebe6da; }
+.board-tabs a[aria-current] { color: var(--paper); background: var(--ink); }
+.board-sidebar-content { padding: 1.25rem; min-height: 0; }
+.board-sidebar [hidden] { display: none !important; }
+.board-panel-title { margin: 0 0 0.5rem; font-size: 1.4rem; font-weight: normal; }
+.board-panel-note { font: 0.85rem/1.6 system-ui, sans-serif; color: #6b6558; }
+.board-sidebar .floor3d-info { position: static; width: auto; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; font: 0.9rem/1.6 system-ui, sans-serif; }
+.board-sidebar .floor3d-info h3 { margin: 0 0 0.25rem; font: normal 2rem/1.2 Georgia, serif; }
+.board-sidebar .floor3d-info__date { margin-bottom: 1.1rem; }
+.board-sidebar .floor3d-info__status { padding: 0.75rem 0; border-block: 1px solid var(--line); }
+.board-sidebar .floor3d-info ul { margin: 1rem 0; }
+.board-sidebar .floor3d-info li { margin: 0.5rem 0; }
+.board-sidebar .floor3d-info a { display: block; text-align: center; background: var(--ink); color: var(--paper); border-radius: 0.6rem; text-decoration: none; padding: 0.7rem 1rem; margin-top: 1.25rem; }
+.board-sidebar .floor3d-route { margin-top: 1.75rem; padding-left: 0.85rem; font: 0.8rem/1.7 system-ui, sans-serif; border-left: 1px solid var(--line); }
+.board-sidebar .floor3d-route__title { font-style: normal; font-weight: 600; color: var(--ink); margin-bottom: 0.5rem; }
+.board-sidebar .floor3d-route__way + .floor3d-route__way { margin-top: 0.75rem; }
+.board-sidebar .quick { margin: 0 0 1.5rem; padding: 0 0 1.25rem; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }
+.board-sidebar .quick h2 { font-size: 1.15rem; }
+.board-sidebar .quick__lede { font-size: 0.8rem; }
+.board-sidebar .quick__opts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.board-sidebar .quick__opt { padding: 0.6rem; }
+.board-sidebar .quick__label { font-size: 0.85rem; }
+.board-sidebar .quick__time, .board-sidebar .quick__free { font-size: 0.7rem; }
+.board-sidebar .book-form { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; gap: 1.1rem; }
+.board-sidebar .room-picker__options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.board-sidebar .book-form__foot { gap: 0.75rem; }
+.board-sidebar .book-form__submit { width: 100%; margin: 0; }
+.board-sidebar .rooms { margin: 0; }
+.board-sidebar .room { padding: 0.75rem; }
+.board-sidebar .room h2 { font-size: 1rem; }
+.board-sidebar .room li { flex-wrap: wrap; gap: 0.4rem; font: 0.8rem/1.5 system-ui, sans-serif; }
+.board-sidebar .room .time { min-width: 0; }
+.board-sidebar .room .who { overflow-wrap: anywhere; }
+.board-sidebar #my-week { width: auto; margin: 0; padding: 0; border: 0; }
+.board-sidebar .mw-title { font-size: 1.4rem; }
+.board-sidebar .mw-range { font-size: 0.8rem; }
+.board-sidebar .mw-intro h3 { font-size: 1rem; font-weight: normal; }
+.board-sidebar .mw-intro p { font: 0.85rem/1.7 system-ui, sans-serif; color: #6b6558; }
+.board-sidebar .mw-intro form, .board-sidebar .mw-change form { display: grid; }
+.board-sidebar .my-week input { min-width: 0; width: 100%; box-sizing: border-box; }
+.board-sidebar .mw-cal { box-shadow: none; }
+/* A vertical week agenda fits the tools column without a tiny seven-column calendar. */
+.board-sidebar .mw-grid { display: block; }
+.board-sidebar .mw-gutter, .board-sidebar .mw-nowline { display: none; }
+.board-sidebar .mw-day { display: grid; grid-template-columns: 3rem minmax(0, 1fr); border: 0; border-bottom: 1px solid var(--line); animation: none; }
+.board-sidebar .mw-dayhead { height: auto; min-height: 3.5rem; border: 0; padding: 0.5rem 0; }
+.board-sidebar .mw-lane { height: auto; display: grid; align-content: center; gap: 0.4rem; padding: 0.5rem; background: none; }
+.board-sidebar .mw-lane .mw-none { display: block; font-size: 0.75rem; }
+.board-sidebar .mw-slot { position: static; height: auto; min-height: 2.5rem; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 0.55rem; animation: none; }
+.board-sidebar .mw-next li { flex-wrap: wrap; }
+.board-sidebar .mw-legend { gap: 0.5rem; font-size: 0.7rem; }
+.board-sidebar .mw-empty { padding: 0.75rem; font-size: 0.8rem; }
+/* Native booking/cancellation popovers are positioned inside this same column. */
+.board-sidebar [popover] { box-sizing: border-box; margin: 0; inset: auto; overflow-y: auto; border-radius: 0.8rem; padding: 1rem; }
+.board-sidebar [popover]::backdrop { background: transparent; backdrop-filter: none; }
+.board-sidebar .cancel-card form { min-width: 0; }
+.board-page:has(.floor3d[hidden]) .board-workspace { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 901px) {
+  .board-page { height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+  .board-page .board-shell { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .board-workspace { min-height: 0; }
+  .board-page .floor3d-stage { min-height: 0; }
+  .board-sidebar { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+  .board-sidebar-content { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+}
+@media (max-width: 900px) {
+  .board-page .board-shell { padding: 1rem; }
+  .board-workspace { grid-template-columns: minmax(0, 1fr); }
+  .board-page .floor3d-stage { height: clamp(20rem, 55vh, 32rem); }
+  .board-sidebar { min-height: 20rem; }
+  .board-page .datenav { gap: 0.35rem; flex-wrap: wrap; }
+  .board-page .datenav a { padding: 0.4rem 0.6rem; }
+}
+
+.board-directions { margin-top: 1.5rem; font: 0.85rem/1.6 system-ui, sans-serif; }
+.board-directions summary { cursor: pointer; }

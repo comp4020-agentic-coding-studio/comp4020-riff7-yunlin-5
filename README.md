@@ -44,9 +44,13 @@ Chifley Library's Level 3, traced from the library's own floor plan, with the
 four group study rooms it books (3.04--3.07) standing on it. The same red
 still means only one thing: a room goes red while a booking in it is
 happening right now, the same answer the list gives, and it updates whenever
-the list does. Drag to turn the floor; click a room to see its status and bookings in a card beside it.
-The card follows the room as you turn the floor; choose “Book this room”
-when you want to open the booking form. The model is traced by eye, with no scale bar to go on, so the shapes
+the list does. The desktop board gives the 3D floor its own main area and
+keeps room details, booking, the room list and My week in a separate tools
+column on the right. Click a room to see its status and bookings there;
+“Book this room” opens the existing form in the same column. The map stays
+visible while you work. On narrow screens the tools sit below the map.
+Booking and cancellation cards also stay inside the tools column.
+The model is traced by eye, with no scale bar to go on, so the shapes
 are right and the metres are approximate --- and everything it shows is also
 in the list and the caption below it, for anyone who can't see it.
 
@@ -56,7 +60,7 @@ its caption.
 
 ## My week
 
-`/my/` lays out everything booked under your name this week as a calendar,
+The My week tab lays out everything booked under your name this week as a daily agenda,
 with next week's bookings listed underneath. Open a booking to book the same
 room at the same time a week later, or, if it hasn't started yet, to cancel
 it. A rebook that would clash is refused, the same as any other booking.

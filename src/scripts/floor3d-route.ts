@@ -7,7 +7,7 @@ import "../styles/floor3d-route.css";
 // Directions to the room. When a room is chosen, a route draws itself along
 // the floor from the lifts to that room's door, marks where the stairs join
 // it, and then flows gently toward the door. The same way is written out in
-// words under the model (the figure's .floor3d-route slot), so it doesn't
+// words beside the model (the sidebar’s .floor3d-route slot), so it doesn't
 // depend on seeing the canvas. The walk itself (which waypoints, which
 // door) comes from src/lib/floorplan.ts; this file only draws and says it.
 //
@@ -159,7 +159,7 @@ function directions(slot: HTMLElement, room: FloorRoom | null): void {
 }
 
 function mount(floor: Floor): void {
-  const slot = floor.figure.querySelector<HTMLElement>(".floor3d-route");
+  const slot = document.querySelector<HTMLElement>(".floor3d-route");
   const y = floor.floorY + LIFT;
   const world = ([x, py]: Point): [number, number] => floor.toWorld(x, py);
 
